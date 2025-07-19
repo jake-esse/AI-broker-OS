@@ -1,6 +1,8 @@
 aiosqlite==0.21.0
 annotated-types==0.7.0
 anyio==4.9.0
+supabase==2.10.0
+resend==2.6.2
 certifi==2025.7.14
 charset-normalizer==3.4.2
 click==8.2.1
