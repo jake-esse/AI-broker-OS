@@ -1,0 +1,133 @@
+# AI-Broker MVP - Email Integration Requirements
+# Additional dependencies for multi-provider email integration
+
+# ===============================================================================
+# ASYNC EMAIL PROCESSING
+# ===============================================================================
+aioimaplib>=1.0.1          # Async IMAP client for email polling
+aiofiles>=23.2.1           # Async file operations
+asyncio-mqtt>=0.16.1       # Async MQTT client (optional for events)
+
+# ===============================================================================
+# DASHBOARD AND UI
+# ===============================================================================
+streamlit>=1.29.0          # Web dashboard framework
+plotly>=5.17.0             # Interactive charts and graphs
+pandas>=2.1.4              # Data manipulation and analysis
+
+# ===============================================================================
+# TESTING AND DEVELOPMENT
+# ===============================================================================
+pytest>=7.4.3             # Testing framework
+pytest-asyncio>=0.21.1    # Async test support
+pytest-cov>=4.1.0         # Coverage reporting
+pytest-mock>=3.12.0       # Mock testing utilities
+httpx>=0.25.2             # HTTP client for testing webhooks
+
+# ===============================================================================
+# SECURITY AND VALIDATION
+# ===============================================================================
+cryptography>=41.0.7      # Encryption and security utilities
+pydantic>=2.5.0           # Data validation and settings
+python-jose>=3.3.0        # JWT token handling
+
+# ===============================================================================
+# EMAIL PARSING AND PROCESSING
+# ===============================================================================
+email-validator>=2.1.0    # Email address validation
+html2text>=2020.1.16      # HTML to text conversion
+python-magic>=0.4.27      # File type detection
+chardet>=5.2.0            # Character encoding detection
+
+# ===============================================================================
+# OAUTH AND AUTHENTICATION
+# ===============================================================================
+authlib>=1.2.1            # OAuth 2.0 and OpenID Connect
+oauthlib>=3.2.2           # OAuth 1.0/2.0 request-signing logic
+PyJWT>=2.8.0              # JSON Web Token implementation
+
+# ===============================================================================
+# MONITORING AND LOGGING
+# ===============================================================================
+prometheus-client>=0.19.0 # Metrics collection
+structlog>=23.2.0         # Structured logging
+sentry-sdk>=1.38.0        # Error tracking (optional)
+
+# ===============================================================================
+# PROVIDER-SPECIFIC CLIENTS
+# ===============================================================================
+google-auth>=2.24.0       # Google OAuth authentication
+google-auth-oauthlib>=1.1.0 # Google OAuth flow
+google-auth-httplib2>=0.2.0 # Google HTTP library
+google-api-python-client>=2.108.0 # Google API client
+
+msal>=1.25.0              # Microsoft Authentication Library
+msgraph-core>=0.2.2       # Microsoft Graph core utilities
+
+# ===============================================================================
+# PERFORMANCE AND OPTIMIZATION
+# ===============================================================================
+uvloop>=0.19.0            # Fast event loop (Unix only)
+orjson>=3.9.10            # Fast JSON serialization
+redis>=5.0.1              # Caching and session storage (optional)
+
+# ===============================================================================
+# DEPLOYMENT AND PRODUCTION
+# ===============================================================================
+gunicorn>=21.2.0          # WSGI HTTP Server
+uvicorn>=0.24.0           # ASGI server
+supervisor>=4.2.5         # Process management
+docker>=6.1.3             # Docker SDK (optional)
+
+# ===============================================================================
+# WEBHOOK AND API UTILITIES
+# ===============================================================================
+flask>=3.0.0             # Lightweight web framework (if needed)
+fastapi>=0.104.1          # Modern API framework (alternative)
+websockets>=12.0          # WebSocket support
+sse-starlette>=1.6.5      # Server-Sent Events
+
+# ===============================================================================
+# DATA PROCESSING AND ANALYSIS
+# ===============================================================================
+numpy>=1.25.2             # Numerical computing
+scipy>=1.11.4             # Scientific computing
+scikit-learn>=1.3.2       # Machine learning (for analytics)
+
+# ===============================================================================
+# DEVELOPMENT TOOLS
+# ===============================================================================
+black>=23.11.0            # Code formatting
+isort>=5.12.0             # Import sorting
+flake8>=6.1.0             # Code linting
+mypy>=1.7.1               # Type checking
+pre-commit>=3.6.0         # Git hooks
+
+# ===============================================================================
+# DOCUMENTATION
+# ===============================================================================
+sphinx>=7.2.6            # Documentation generation
+sphinx-rtd-theme>=1.3.0  # Read the Docs theme
+mkdocs>=1.5.3            # Alternative documentation
+mkdocs-material>=9.4.8   # Material theme for MkDocs
+
+# ===============================================================================
+# COMPATIBILITY NOTES
+# ===============================================================================
+#
+# Python Version: 3.9+
+# 
+# Platform-specific dependencies:
+# - uvloop: Unix/Linux only (Windows uses asyncio)
+# - python-magic: Requires libmagic system library
+# 
+# Optional dependencies:
+# - redis: For caching and session storage
+# - sentry-sdk: For error tracking in production
+# - supervisor: For production process management
+# 
+# Development vs Production:
+# - Development: Include all testing and dev tools
+# - Production: Exclude pytest, black, flake8, etc.
+# 
+# ===============================================================================
