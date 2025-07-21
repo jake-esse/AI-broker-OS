@@ -60,13 +60,12 @@ If any of these are missing, the workflow will ask for clarification.
 BUSINESS RATIONALE:
 - origin_city/state: Where to pickup the freight
 - dest_city/state: Where to deliver the freight  
-- pickup_date: When freight is available
-- equipment_type: What kind of truck is needed (Van, Flatbed, Reefer)
+- pickup_dt: When freight is available (pickup date)
+- equipment: What kind of truck is needed (Van, Flatbed, Reefer)
 - weight_lb: Weight affects pricing and equipment requirements
 """
-# Updated to match DEV_PLAN.md schema
-REQUIRED = ["origin_city", "origin_state", "dest_city", "dest_state", 
-            "pickup_date", "equipment_type", "weight_lbs"]
+# Updated to match actual database schema
+REQUIRED = ["origin_zip", "dest_zip", "pickup_dt", "equipment", "weight_lb"]
 
 # LLM model configuration - using gpt-4o-mini for cost efficiency
 MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
@@ -293,12 +292,12 @@ def detect_freight_complexity(raw_text: str, load_data: dict) -> tuple[List[str]
         detected_oversize_patterns.extend(matches)
     
     # Check weight threshold (over 80,000 lbs)
-    weight_lbs = load_data.get('weight_lbs', 0)
-    overweight_threshold = weight_lbs > 80000 if isinstance(weight_lbs, int) else False
+    weight_lb = load_data.get('weight_lb', 0)
+    overweight_threshold = weight_lb > 80000 if isinstance(weight_lb, int) else False
     
     if detected_oversize_keywords or detected_oversize_patterns or overweight_threshold:
         complexity_flags.append('OVERSIZE')
-        analysis_parts.append(f"OVERSIZE detected: keywords={detected_oversize_keywords}, patterns={detected_oversize_patterns}, weight={weight_lbs}")
+        analysis_parts.append(f"OVERSIZE detected: keywords={detected_oversize_keywords}, patterns={detected_oversize_patterns}, weight={weight_lb}")
     
     # ═══════════════════════════════════════════════════════════════════════
     # MULTI-STOP DETECTION
@@ -382,7 +381,7 @@ def detect_freight_complexity(raw_text: str, load_data: dict) -> tuple[List[str]
         detected_ltl_patterns.extend(matches)
     
     # Check weight threshold (under 10,000 lbs suggests LTL)
-    ltl_weight_threshold = weight_lbs < 10000 if isinstance(weight_lbs, int) and weight_lbs > 0 else False
+    ltl_weight_threshold = weight_lb < 10000 if isinstance(weight_lb, int) and weight_lb > 0 else False
     
     # Check pallet count (low pallet count suggests LTL)
     pieces = load_data.get('pieces', 0)
@@ -390,7 +389,7 @@ def detect_freight_complexity(raw_text: str, load_data: dict) -> tuple[List[str]
     
     if detected_ltl_keywords or detected_ltl_patterns or ltl_weight_threshold or ltl_piece_threshold:
         complexity_flags.append('LTL')
-        analysis_parts.append(f"LTL detected: keywords={detected_ltl_keywords}, patterns={detected_ltl_patterns}, weight={weight_lbs}, pieces={pieces}")
+        analysis_parts.append(f"LTL detected: keywords={detected_ltl_keywords}, patterns={detected_ltl_patterns}, weight={weight_lb}, pieces={pieces}")
     
     # ═══════════════════════════════════════════════════════════════════════
     # PARTIAL LOAD DETECTION
@@ -415,11 +414,11 @@ def detect_freight_complexity(raw_text: str, load_data: dict) -> tuple[List[str]
         detected_partial_patterns.extend(matches)
     
     # Check weight threshold (under 20,000 lbs suggests partial)
-    partial_weight_threshold = weight_lbs < 20000 if isinstance(weight_lbs, int) and weight_lbs > 0 else False
+    partial_weight_threshold = weight_lb < 20000 if isinstance(weight_lb, int) and weight_lb > 0 else False
     
     if detected_partial_keywords or detected_partial_patterns or partial_weight_threshold:
         complexity_flags.append('PARTIAL')
-        analysis_parts.append(f"PARTIAL detected: keywords={detected_partial_keywords}, patterns={detected_partial_patterns}, weight={weight_lbs}")
+        analysis_parts.append(f"PARTIAL detected: keywords={detected_partial_keywords}, patterns={detected_partial_patterns}, weight={weight_lb}")
     
     # ═══════════════════════════════════════════════════════════════════════
     # SPECIALIZED FLATBED DETECTION
@@ -445,7 +444,7 @@ def detect_freight_complexity(raw_text: str, load_data: dict) -> tuple[List[str]
         detected_flatbed_patterns.extend(matches)
     
     # Check equipment type from extraction
-    equipment = load_data.get('equipment_type', '').lower()
+    equipment = load_data.get('equipment', '').lower()
     flatbed_equipment = equipment in ['flatbed', 'stepdeck', 'lowboy', 'rgn', 'double drop']
     
     if detected_flatbed_keywords or detected_flatbed_patterns or flatbed_equipment:
@@ -488,15 +487,15 @@ def generate_missing_info_email(load_data: dict, missing_fields: List[str],
     
     # Create human-readable field names
     field_descriptions = {
+        "origin_zip": "pickup ZIP code",
+        "dest_zip": "delivery ZIP code",
+        "pickup_dt": "pickup date",
+        "equipment": "equipment type (Van, Flatbed, Reefer, etc.)",
+        "weight_lb": "total weight in pounds",
         "origin_city": "pickup city",
         "origin_state": "pickup state",
-        "origin_zip": "pickup ZIP code",
         "dest_city": "delivery city",
-        "dest_state": "delivery state",
-        "dest_zip": "delivery ZIP code",
-        "pickup_date": "pickup date",
-        "equipment_type": "equipment type (Van, Flatbed, Reefer, etc.)",
-        "weight_lbs": "total weight in pounds"
+        "dest_state": "delivery state"
     }
     
     # Build context about what we already have
@@ -505,12 +504,12 @@ def generate_missing_info_email(load_data: dict, missing_fields: List[str],
         available_info.append(f"Pickup ZIP: {load_data['origin_zip']}")
     if load_data.get("dest_zip"):
         available_info.append(f"Delivery ZIP: {load_data['dest_zip']}")
-    if load_data.get("pickup_date"):
-        available_info.append(f"Pickup Date: {load_data['pickup_date']}")
-    if load_data.get("equipment_type"):
-        available_info.append(f"Equipment: {load_data['equipment_type']}")
-    if load_data.get("weight_lbs"):
-        available_info.append(f"Weight: {load_data['weight_lbs']} lbs")
+    if load_data.get("pickup_dt"):
+        available_info.append(f"Pickup Date: {load_data['pickup_dt']}")
+    if load_data.get("equipment"):
+        available_info.append(f"Equipment: {load_data['equipment']}")
+    if load_data.get("weight_lb"):
+        available_info.append(f"Weight: {load_data['weight_lb']} lbs")
     if load_data.get("commodity"):
         available_info.append(f"Commodity: {load_data['commodity']}")
     
@@ -674,16 +673,17 @@ def classify(state: GState) -> Dict[str, Any]:
     """
     prompt = (
         "Extract freight load information from this email and return ONLY a JSON object with these exact fields:\n"
-        "REQUIRED fields (per DEV_PLAN.md schema):\n"
-        "- origin_city: pickup city name\n"
-        "- origin_state: pickup state (2-letter code like TX, FL)\n"
+        "REQUIRED fields (matching database schema):\n"
         "- origin_zip: pickup zip code (5 digits)\n"
-        "- dest_city: delivery city name\n"
-        "- dest_state: delivery state (2-letter code)\n"
         "- dest_zip: delivery zip code (5 digits)\n"
-        "- pickup_date: pickup date (YYYY-MM-DD format)\n"
-        "- equipment_type: equipment type (Van, Flatbed, Reefer, etc.)\n"
-        "- weight_lbs: weight in pounds (number only)\n\n"
+        "- pickup_dt: pickup date (YYYY-MM-DD format)\n"
+        "- equipment: equipment type (Van, Flatbed, Reefer, etc.)\n"
+        "- weight_lb: weight in pounds (number only)\n\n"
+        "OPTIONAL but recommended:\n"
+        "- origin_city: pickup city name\n"
+        "- origin_state: pickup state (2-letter code)\n"
+        "- dest_city: delivery city name\n"
+        "- dest_state: delivery state (2-letter code)\n\n"
         "OPTIONAL fields (include if available):\n"
         "- commodity: what's being shipped\n"
         "- rate_per_mile: rate per mile if mentioned\n"
@@ -714,6 +714,8 @@ def classify(state: GState) -> Dict[str, Any]:
     # Clean up JSON formatting (remove markdown code blocks)
     if raw.startswith("```"):
         raw = raw.strip("`").strip()
+        if raw.startswith("json"):
+            raw = raw[4:].strip()
     
     # Parse JSON with fallback for malformed responses
     try:
