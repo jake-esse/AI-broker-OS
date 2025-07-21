@@ -302,6 +302,212 @@ This documentation approach ensures the codebase remains maintainable and AI-fri
 
 Always consult the freight brokerage guide when developing features to ensure technical solutions create genuine business value and align with industry best practices.
 
+## Product Requirements Document (PRD) Management
+
+**CRITICAL REFERENCE**: This codebase includes a comprehensive `PRD.md` file that serves as the definitive product specification for the AI-Broker MVP. This document must be actively referenced and maintained throughout development.
+
+### When to Reference the PRD
+
+**Always consult PRD.md when:**
+
+1. **Starting New Features**: Verify feature requirements, user experience specifications, and technical constraints
+2. **Making Architecture Decisions**: Ensure decisions align with defined non-functional requirements and scalability goals
+3. **Implementing User Interface**: Reference UX requirements for chat-based interactions and navigation structure
+4. **Integrating Third-Party Services**: Check specified tools (Resend, Reducto, Stripe, DocuSign, etc.) and integration patterns
+5. **Defining Success Metrics**: Use defined KPIs to evaluate feature effectiveness and system performance
+6. **Handling Edge Cases**: Reference risk mitigation strategies and error handling approaches
+7. **Planning Development Tasks**: Use roadmap phases to prioritize work and maintain project timeline
+
+### When to Update the PRD
+
+**Always update PRD.md when:**
+
+1. **Requirements Change**: User feedback or business needs modify functional requirements
+2. **Technical Constraints Discovered**: Infrastructure limitations require scope or approach changes
+3. **New Features Added**: Expansion beyond original MVP scope requires documentation
+4. **User Experience Insights**: Usability testing reveals needed interface or workflow changes
+5. **Performance Requirements Evolve**: Scale demands or user behavior changes performance needs
+6. **Integration Challenges**: Third-party service limitations require alternative approaches
+7. **Success Metrics Validation**: Early results suggest different KPIs would better measure success
+8. **Risk Assessment Updates**: New risks identified or mitigation strategies proven ineffective
+
+### How to Update the PRD
+
+**For each significant change:**
+
+1. **Document Rationale**: Explain why the change is needed and what problem it solves
+2. **Update Affected Sections**: Modify functional requirements, technical architecture, or UX specifications
+3. **Revise Success Metrics**: Adjust KPIs if the change impacts measurable outcomes
+4. **Update Development Roadmap**: Reflect timeline or priority changes in the development phases
+5. **Cross-Reference Dependencies**: Update related sections that may be impacted by the change
+6. **Maintain Consistency**: Ensure changes align with overall product vision and user personas
+
+### PRD Integration with Development Process
+
+**Daily Development Practice:**
+- Reference PRD sections relevant to current work
+- Validate implementations match specified requirements
+- Update PRD immediately when requirements change during development
+- Use PRD as source of truth for feature scope and definition
+
+**Technical Implementation:**
+- Ensure code comments reference PRD sections for business context
+- Align database schema with PRD data models
+- Follow specified technology choices and integration patterns
+- Implement success metrics tracking as defined in PRD
+
+**Quality Assurance:**
+- Test against PRD acceptance criteria
+- Verify user experience matches specified designs
+- Validate performance meets non-functional requirements
+- Ensure security implementations follow PRD specifications
+
+### Integration with Other Documentation
+
+- **PRD.md:** Product requirements and business specifications
+- **ARCHITECTURE.md:** Technical implementation patterns and system design
+- **FREIGHT_BROKERAGE.md:** Industry context and business process requirements
+- **Individual component files:** Specific implementations with PRD cross-references
+
+The PRD serves as the contract between business requirements and technical implementation. Keeping it current ensures all development work delivers the intended product value and user experience.
+
+## Context-Driven Development Process
+
+**CRITICAL WORKFLOW**: This project uses a comprehensive documentation system to ensure all development decisions are informed by business requirements, technical architecture, and industry expertise. Always follow this process.
+
+### Required Context Consultation
+
+**Before making any development decision, ALWAYS consult these files in order:**
+
+1. **DEV_PLAN.md** - Check current phase, week-specific tasks, and implementation priorities
+2. **PRD.md** - Verify feature requirements, user experience specifications, and success metrics
+3. **ARCHITECTURE.md** - Ensure technical approach aligns with system design and patterns
+4. **FREIGHT_BROKERAGE.md** - Understand industry context and business process requirements
+
+### Decision-Making Framework
+
+**For Feature Development:**
+```
+1. Check DEV_PLAN.md → What phase are we in? What's the current priority?
+2. Check PRD.md → What are the exact requirements for this feature?
+3. Check ARCHITECTURE.md → How should this be implemented technically?
+4. Check FREIGHT_BROKERAGE.md → What industry considerations apply?
+5. Implement with comprehensive comments referencing these contexts
+6. Update relevant files if implementation reveals new requirements
+```
+
+**For Bug Fixes:**
+```
+1. Check ARCHITECTURE.md → What's the intended design pattern?
+2. Check PRD.md → What's the expected behavior?
+3. Check FREIGHT_BROKERAGE.md → Are there industry-specific edge cases?
+4. Fix the issue maintaining architectural consistency
+```
+
+**For New Requirements:**
+```
+1. Update PRD.md → Add or modify functional requirements
+2. Update ARCHITECTURE.md → Adjust technical design if needed
+3. Update DEV_PLAN.md → Adjust timeline and priorities
+4. Ensure FREIGHT_BROKERAGE.md → Covers any new industry processes
+```
+
+### When to Surface Questions
+
+**ALWAYS ask the user for clarification when:**
+
+1. **Conflicting Requirements**: Documentation files seem to contradict each other
+2. **Missing Information**: Feature requirements aren't clear from existing documentation
+3. **Industry Expertise Needed**: Freight brokerage process questions beyond documentation
+4. **Architecture Decisions**: Multiple valid technical approaches, need business input
+5. **Priority Conflicts**: Unclear which features take precedence
+6. **Scope Ambiguity**: Uncertain if a feature belongs in current phase or later
+7. **Performance Trade-offs**: Business decisions needed on speed vs accuracy vs cost
+8. **Integration Challenges**: Third-party service limitations require business decisions
+
+### Question Format
+
+When surfacing questions, use this format:
+```
+**Context**: [Brief explanation of what you're trying to implement]
+**Question**: [Specific question that needs clarification]
+**Options Considered**: [Brief list of potential approaches]
+**Recommendation**: [Your suggested approach with rationale]
+**Impact**: [How this decision affects timeline/scope/architecture]
+```
+
+### Documentation Maintenance
+
+**Update context files immediately when:**
+
+1. **Requirements Change**: User provides new or modified requirements
+2. **Architecture Evolves**: Technical implementation patterns change
+3. **Industry Learning**: New understanding of freight brokerage processes
+4. **Feature Completion**: Implementation reveals gaps in documentation
+5. **Performance Insights**: Optimization work changes architectural decisions
+6. **Integration Discoveries**: Third-party service limitations affect design
+7. **User Feedback**: Testing reveals need for requirement adjustments
+
+### File Maintenance Responsibilities
+
+**DEV_PLAN.md Updates:**
+- Mark completed tasks as done
+- Add new tasks discovered during implementation
+- Adjust timelines based on actual progress
+- Note blockers and their resolutions
+
+**PRD.md Updates:**
+- Add new functional requirements
+- Modify user experience specifications
+- Update success metrics based on learning
+- Revise technical architecture as needed
+
+**ARCHITECTURE.md Updates:**
+- Document new architectural patterns
+- Update performance metrics and targets
+- Add new integration patterns
+- Revise best practices based on implementation
+
+**FREIGHT_BROKERAGE.md Updates:**
+- Add newly discovered industry processes
+- Clarify business logic based on implementation
+- Update regulatory requirements as needed
+- Document industry-specific edge cases
+
+### Implementation Comments Standard
+
+**Every significant code block must reference relevant documentation:**
+
+```python
+# PRD Section 3.2: Load Intake Processing
+# ARCHITECTURE: Universal Input Abstraction pattern
+# FREIGHT_BROKERAGE: FTL Load Tender Receipt process (lines 80-102)
+def process_load_tender(self, tender_data: Dict) -> LoadProcessingResult:
+    """
+    Process incoming load tender according to freight industry standards.
+    
+    BUSINESS CONTEXT (from FREIGHT_BROKERAGE.md):
+    Load tenders require validation of all required fields before 
+    proceeding to quote generation. Missing information must be 
+    requested from shipper to prevent delays.
+    
+    TECHNICAL APPROACH (from ARCHITECTURE.md):
+    Uses Universal Input Abstraction to normalize data from any source
+    before applying business logic validation.
+    """
+```
+
+### Quality Assurance Checklist
+
+**Before committing any code:**
+- [ ] Referenced all relevant context files
+- [ ] Implementation matches PRD requirements
+- [ ] Code follows ARCHITECTURE.md patterns
+- [ ] Business logic aligns with FREIGHT_BROKERAGE.md
+- [ ] Comments reference specific documentation sections
+- [ ] Context files updated if new requirements discovered
+- [ ] Surfaced questions if any ambiguity exists
+
 ---
 
 ## 🚀 MVP Development Plan

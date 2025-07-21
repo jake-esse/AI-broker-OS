@@ -1,113 +1,202 @@
-# AI-broker-OS 🚚🤖
+# AI-Broker: Intelligent Freight Brokerage Automation Platform 🚚🤖
 
-> **AI‑first operating system for small & mid‑sized freight brokers**
-> One codebase orchestrating the **entire lifecycle** of a truckload—from prospecting all the way to margin analytics—using LangGraph agents, Supabase as the data plane, and modern cloud primitives.
+AI-Broker is a web-based platform that automates freight brokerage operations for independent brokers, enabling them to handle 3-5x more loads while maintaining quality and compliance. The platform uses AI agents that communicate through multiple channels (email, SMS, phone) on behalf of brokers, managing the entire freight lifecycle from quoting through payment.
+
+## 🏗️ Documentation-Driven Development
+
+This project uses a comprehensive documentation system to facilitate effective human-AI collaboration in software development. All development decisions are guided by four core context files that work together to ensure technical implementation aligns with business requirements and industry best practices.
 
     
 
----
+## 📋 Core Context Files
 
-## 🌐 Freight‑Lifecycle Vision
+### DEV_PLAN.md - Development Roadmap & Implementation Guide
+**Purpose**: Provides week-by-week development timeline with detailed technical implementation steps.
 
-| Stage                             | Pain Today                       | AI‑broker‑OS Module (roadmap)                                                                         |
-| --------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| **1 Prospecting & Lead Scoring**  | Manual list pulling & cold calls | *ProspectRank Agent* → scrapes load boards, enriches shipper data, scores leads, feeds HubSpot.       |
-| **2 Tender Intake**               | Parsing E‑mails / EDI by hand    | **Intake Agent** (Postmark → LLM) → tender → `loads` table. *(✅ live)*                                           |
-| **3 Pricing / Cost Intelligence** | Spreadsheets, slow rate engines  | *PriceSense Agent* → taps DAT + historical margin; returns suggested sell/buy rate.                   |
-| **4 Carrier Sourcing & Blast**    | Outlook BCC, SMS copy‑paste      | **LoadBlast Agent** (Resend/Twilio) → personalized offers, staggered tiers. *(🚧)*                    |
-| **5 Quote Collection & Ranking**  | Inbox zero chaos                 | **QuoteCollector Agent** → regex/LLM parses replies, normalizes bids, scores best option. *(backlog)* |
-| **6 Booking & Doc Gen**           | Rate‑cons, BOLs built in Word    | *Docs Agent* → auto‑generates rate confirmations/BOL PDFs, e‑sign via Dropbox Sign.                   |
-| **7 Track & Trace**               | Phone calls, portal hopping      | *TrackBot* → pulls telematics APIs & carrier E‑Mails, predicts ETA changes, alerts.                   |
-| **8 Settlements & Billing**       | AP/AR double entry               | *InvoiceFlow* → matches POD, generates invoice, syncs QuickBooks.                                     |
-| **9 Margin & SLA Analytics**      | Excel macros                     | *Insights Dashboard* (Next.js + Supabase) → gross margin, carrier OT‑D metrics.                       |
+**Contents**:
+- 24-week development plan from MVP to full platform
+- Strategic analysis of development approach (freight types vs end-to-end automation)
+- Detailed technical implementation for each phase
+- External requirements (API keys, accounts, configurations)
+- Code examples and database schemas
+- Testing strategies and production checklists
 
-Each module is a **LangGraph workflow** plus a thin Supabase Edge Function persist layer—so you can plug new intents in days, not months.
+**When to Reference**:
+- Starting work on any new feature
+- Planning sprint or weekly tasks
+- Understanding current development phase
+- Setting up external integrations
+- Preparing for production deployment
 
----
+### PRD.md - Product Requirements Document
+**Purpose**: Defines what we're building, for whom, and why. Serves as the contract between business vision and technical implementation.
 
-## ✨ MVP Scope (ASAP)
+**Contents**:
+- Market analysis and problem definition
+- Target user personas and use cases
+- Functional requirements for all features
+- User experience specifications
+- Non-functional requirements (performance, security, scalability)
+- Success metrics and KPIs
+- Technical architecture overview
 
-| Flow step                                                           | Tech                                | Status       |
-| ------------------------------------------------------------------- | ----------------------------------- | ------------ |
-| **1 Intake Agent**Postmark → LLM converts tender E‑mail → `loads` JSON         | LangGraph 0.5 · OpenAI GPT‑4o · Postmark       | ✅ live       |
-| **2 fn\_create\_load**Insert load row + `pg_notify('load.created')` | Supabase Edge Function (TypeScript) | 🚧 deploying |
-| **3 LoadBlast Agent**Email/SMS offer to carriers                    | LangGraph · Resend/Twilio           | 🟡 prototype |
-| **4 QuoteCollector Agent**Parse replies → `carrier_quotes`          | LangGraph · Regex/LLM               | ⬜ backlog    |
-| **5 Broker Inbox UI**                                               | Next.js · Supabase Realtime         | ⬜ design     |
+**When to Reference**:
+- Implementing any user-facing feature
+- Making UX/UI decisions
+- Defining API specifications
+- Setting performance targets
+- Validating feature completeness
 
----
+### ARCHITECTURE.md - Technical Architecture & System Design
+**Purpose**: Defines how we build the platform. Provides technical patterns, design principles, and implementation guidelines.
 
-## 🗺 Repository layout
+**Contents**:
+- System architecture and component design
+- Multi-channel communication strategy
+- AI agent coordination and workflows
+- Data architecture and models
+- Performance optimization strategies
+- Development best practices
+- Scalability and continuous improvement frameworks
 
+**When to Reference**:
+- Writing any code
+- Making technical architecture decisions
+- Setting up integrations
+- Optimizing performance
+- Designing new components
+
+### FREIGHT_BROKERAGE.md - Industry Context & Business Logic
+**Purpose**: Provides deep freight industry knowledge to ensure our technical solutions address real business problems correctly.
+
+**Contents**:
+- Complete freight brokerage process flows
+- Industry terminology and stakeholder relationships
+- Freight type variations (FTL, LTL, Reefer, Flatbed, Hazmat)
+- Regulatory environment and compliance requirements
+- Pain points and automation opportunities
+- Current industry technology landscape
+
+**When to Reference**:
+- Implementing business logic
+- Handling industry-specific edge cases
+- Making decisions about freight processes
+- Understanding user workflows
+- Designing automation features
+
+## 🔄 How They Work Together
+
+### Development Workflow
 ```
-AI-broker-OS/
-├── intake_graph.py              # tender → load graph (Python)
-├── requirements.txt             # frozen Python deps
-├── sample.eml                   # demo tender email
-├── broker_state.sqlite          # local checkpoints (ignored in CI)
-├── supabase/
-│   ├── functions/
-│   │   └── fn_create_load/      # Edge Function source (Deno)
-│   └── sql/
-│       └── 000_loads.sql        # table + trigger
-└── README.md
+1. DEV_PLAN.md → What am I building this week?
+2. PRD.md → What are the exact requirements?
+3. ARCHITECTURE.md → How should I implement this?
+4. FREIGHT_BROKERAGE.md → What industry rules apply?
+5. Implement with comprehensive documentation references
+6. Update context files if new insights are discovered
 ```
 
----
+### Decision-Making Hierarchy
+1. **Business Requirements** (PRD.md) - What the product must do
+2. **Industry Context** (FREIGHT_BROKERAGE.md) - How the freight industry works
+3. **Technical Architecture** (ARCHITECTURE.md) - How to implement it correctly
+4. **Development Plan** (DEV_PLAN.md) - When and how to build it
 
-## 🛠 Local Dev Quick‑start
+### Quality Assurance
+Every code commit must:
+- Reference specific sections from relevant context files
+- Include business context from FREIGHT_BROKERAGE.md
+- Follow patterns defined in ARCHITECTURE.md  
+- Meet requirements specified in PRD.md
+- Align with current phase in DEV_PLAN.md
 
-```bash
-# clone & enter
-git clone git@github.com:jake-esse/AI-broker-OS.git
-cd AI-broker-OS
+## 🤖 Human-AI Collaboration Model
 
-# python venv
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+### AI Responsibilities
+- **Context Consultation**: Always check relevant documentation before implementation
+- **Pattern Following**: Implement according to architectural guidelines
+- **Documentation Updates**: Keep context files current as development progresses
+- **Question Surfacing**: Ask for clarification when requirements are unclear
 
-# env vars
-cp .env.example .env     # set OPENAI_API_KEY, FN_CREATE_LOAD_URL, SUPABASE_*
+### Human Responsibilities
+- **Strategic Decisions**: Business priorities, feature scope, timeline adjustments
+- **Industry Expertise**: Freight brokerage process clarifications and edge cases
+- **External Setup**: API keys, accounts, third-party service configurations
+- **Quality Review**: Testing, user feedback, performance validation
 
-# run intake
-python intake_graph.py sample.eml
-```
+### Collaboration Principles
+1. **Transparency**: All decisions are documented and traceable
+2. **Context-Driven**: No implementation without proper context consultation
+3. **Iterative Improvement**: Documentation evolves with implementation learning
+4. **Question-Friendly**: Ambiguity is surfaced immediately, not assumed
 
-### Supabase CLI (optional local stack)
+## 🚀 Getting Started
 
-```bash
-brew install supabase
-supabase login
-supabase link --project-ref <your-ref>
-supabase db push supabase/sql/000_loads.sql
-supabase functions deploy fn_create_load
-```
+### For Developers
+1. Read CLAUDE.md for complete development workflow
+2. Review DEV_PLAN.md to understand current phase
+3. Study PRD.md for feature requirements  
+4. Understand ARCHITECTURE.md patterns
+5. Familiarize with FREIGHT_BROKERAGE.md industry context
 
----
+### For Business Stakeholders
+1. PRD.md provides complete product vision and requirements
+2. DEV_PLAN.md shows development timeline and milestones
+3. ARCHITECTURE.md explains technical approach and scalability
+4. FREIGHT_BROKERAGE.md validates industry alignment
 
-## 🔄 Common tasks
+## 📊 Current Status
 
-| Task                                  | Command                                                   |
-| ------------------------------------- | --------------------------------------------------------- |
-| Freeze deps after installing new libs | `pip freeze > requirements.txt`                           |
-| Edge Function live‑reload             | `supabase functions serve --no-verify-jwt fn_create_load` |
-| Run LangGraph tests                   | `pytest tests/`                                           |
-| Bump model version                    | edit `MODEL` const in `intake_graph.py`                   |
+**Phase**: MVP Development (Weeks 1-4)
+**Focus**: FTL Dry Van Quoting Automation
+**Next**: Multi-Modal Freight Type Expansion (Weeks 5-9)
 
----
+See DEV_PLAN.md for detailed current status and next steps.
 
-## 🧭 Roadmap Highlights
+## 🏛️ Architecture Overview
 
-1. **QuoteCollector Agent** – robust parsing with LlamaParse fallback.
-2. **LoadBlast UI** – live offer status chips, broker overrides.
-3. **TrackBot** – telematics & macro‑market ETA prediction (pgvector).
-4. **Redis checkpointing** – swap SQLite for multi‑runner safe store.
-5. **CI** – GitHub Actions: pytest + LangSmith eval + supabase migration.
+AI-Broker is a Next.js web application with AI agents that communicate through multiple channels:
 
----
+- **Frontend**: Next.js web app (broker command center)
+- **Backend**: Supabase (PostgreSQL + Auth + Realtime)
+- **AI Orchestration**: LangChain/LangGraph agents
+- **Communication**: Resend (email), Postmark (inbound), Twilio (SMS/voice)
+- **Payments**: Stripe (billing and carrier payments)
+- **Documents**: DocuSign (rate confirmations), Reducto (OCR)
+
+## 📈 Success Metrics
+
+**MVP Targets (Week 4)**:
+- 10 active brokers
+- 100 quotes generated
+- 90% data extraction accuracy
+- <5s quote generation time
+
+**Full Platform (Week 24)**:
+- 500 active brokers  
+- 10K loads/month processed
+- $50K MRR
+- 3-5x broker productivity increase
 
 ## 🤝 Contributing
 
-1. Fork → feature branch → PR.
-2. `pre-commit install` for code style (`black`, `ruff`, `mypy`).
-3. Keep PRs atomic—one feature/fix each.
+This project follows a documentation-driven development process. All contributors must:
+
+1. Read and understand all context files
+2. Follow the development workflow in CLAUDE.md
+3. Reference documentation in all code implementations
+4. Update context files when discovering new requirements
+5. Surface questions when requirements are unclear
+
+## 📞 Support
+
+For questions about:
+- **Product Features**: Reference PRD.md
+- **Technical Implementation**: Reference ARCHITECTURE.md  
+- **Development Timeline**: Reference DEV_PLAN.md
+- **Industry Context**: Reference FREIGHT_BROKERAGE.md
+- **Development Process**: Reference CLAUDE.md
+
+---
+
+*This documentation system enables rapid, high-quality development by ensuring all technical decisions are grounded in business requirements, industry expertise, and architectural best practices.*
