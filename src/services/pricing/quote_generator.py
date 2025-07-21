@@ -61,7 +61,10 @@ if RESEND_API_KEY:
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
-supabase: Client = create_client(supabase_url, supabase_key)
+supabase: Optional[Client] = None
+
+if supabase_url and supabase_key:
+    supabase = create_client(supabase_url, supabase_key)
 
 # Business configuration
 QUOTE_VALIDITY_HOURS = 24

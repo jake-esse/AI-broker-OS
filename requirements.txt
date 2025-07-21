@@ -51,3 +51,7 @@ urllib3==2.5.0
 uvicorn==0.35.0
 xxhash==3.5.0
 zstandard==0.23.0
+html2text==2024.2.26
+chardet==5.2.0
+geopy==2.4.1
+Jinja2==3.1.4

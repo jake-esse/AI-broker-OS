@@ -1,5 +1,4 @@
 """Pricing Services Module"""
-from .engine import PricingEngine
-from .quote_generator import QuoteGenerator
+from .engine import PricingEngine, generate_quote_email
 
-__all__ = ["PricingEngine", "QuoteGenerator"]
+__all__ = ["PricingEngine", "generate_quote_email"]

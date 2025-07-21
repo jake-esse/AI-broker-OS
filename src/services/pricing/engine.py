@@ -136,51 +136,47 @@ class PricingResult:
             "recommended_quote_to_shipper": str(self.recommended_quote_to_shipper)
         }
 
+# ─── Local imports ──────────────────────────────────────────────────────
+try:
+    from src.services.distance_calculator import calculate_freight_distance, get_route_details
+except ImportError:
+    # Fallback for when running as standalone
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).parent.parent.parent))
+    from services.distance_calculator import calculate_freight_distance, get_route_details
+
 # ╔══════════ 2. Distance Calculation ═══════════════════════════════════════
 
 def calculate_distance(origin_city: str, origin_state: str, 
-                      dest_city: str, dest_state: str) -> int:
+                      dest_city: str, dest_state: str,
+                      origin_zip: str = "", dest_zip: str = "") -> int:
     """
-    Calculate approximate road miles between cities.
+    Calculate accurate road miles between cities using enhanced service.
     
     BUSINESS LOGIC:
-    Accurate mileage is critical for pricing. In production, this would
-    integrate with professional routing APIs (PC*Miler, Google Maps, etc).
-    For MVP, we use a simplified calculation based on major city pairs.
+    Uses multiple data sources to ensure accurate mileage for pricing.
+    Includes fallbacks for reliability and caching for performance.
     
     ARGS:
         origin_city: Pickup city name
         origin_state: Pickup state code
         dest_city: Delivery city name
         dest_state: Delivery state code
+        origin_zip: Optional pickup ZIP for better accuracy
+        dest_zip: Optional delivery ZIP for better accuracy
         
     RETURNS:
         int: Estimated road miles
     """
     
-    # MVP: Simplified distance matrix for common lanes
-    # In production, integrate with routing API
-    distance_matrix = {
-        ("Dallas, TX", "Houston, TX"): 240,
-        ("Dallas, TX", "Miami, FL"): 1300,
-        ("Los Angeles, CA", "Phoenix, AZ"): 370,
-        ("Chicago, IL", "Atlanta, GA"): 720,
-        ("New York, NY", "Los Angeles, CA"): 2800,
-    }
+    # Use enhanced distance calculator
+    miles = calculate_freight_distance(
+        origin_city, origin_state, origin_zip or "",
+        dest_city, dest_state, dest_zip or ""
+    )
     
-    # Create location strings
-    origin = f"{origin_city}, {origin_state}"
-    dest = f"{dest_city}, {dest_state}"
-    
-    # Check matrix both directions
-    if (origin, dest) in distance_matrix:
-        return distance_matrix[(origin, dest)]
-    elif (dest, origin) in distance_matrix:
-        return distance_matrix[(dest, origin)]
-    else:
-        # Fallback: rough estimate based on state-to-state
-        # In production, this would call a routing API
-        return 500  # Default estimate
+    return miles
 
 # ╔══════════ 3. Market Rate Analysis ═══════════════════════════════════════
 
@@ -331,10 +327,15 @@ class PricingEngine:
         # Initialize Supabase client
         supabase_url = os.getenv("SUPABASE_URL")
         supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
-        self.supabase: Client = create_client(supabase_url, supabase_key)
         
-        # Initialize market analyzer
-        self.market_analyzer = MarketRateAnalyzer(self.supabase)
+        # Only initialize if credentials are available
+        if supabase_url and supabase_key:
+            self.supabase: Client = create_client(supabase_url, supabase_key)
+            # Initialize market analyzer
+            self.market_analyzer = MarketRateAnalyzer(self.supabase)
+        else:
+            self.supabase = None
+            self.market_analyzer = None
         
         # Business configuration
         self.target_margin = 0.15  # 15% target margin
@@ -365,29 +366,57 @@ class PricingEngine:
         # Extract load details
         origin_city = load_data.get("origin_city", "")
         origin_state = load_data.get("origin_state", "")
+        origin_zip = load_data.get("origin_zip", "")
         dest_city = load_data.get("dest_city", "")
         dest_state = load_data.get("dest_state", "")
-        equipment_type = load_data.get("equipment_type", "Van")
-        weight_lbs = load_data.get("weight_lbs", 0)
-        pickup_date = load_data.get("pickup_date", datetime.now().strftime("%Y-%m-%d"))
+        dest_zip = load_data.get("dest_zip", "")
+        equipment_type = load_data.get("equipment_type", load_data.get("equipment", "Van"))
+        weight_lbs = load_data.get("weight_lbs", load_data.get("weight_lb", 0))
+        pickup_date = load_data.get("pickup_date", load_data.get("pickup_dt", datetime.now().strftime("%Y-%m-%d")))
         
-        # Step 1: Calculate distance
-        miles = calculate_distance(origin_city, origin_state, dest_city, dest_state)
+        # Step 1: Calculate distance with enhanced service
+        route_details = get_route_details(
+            origin_city, origin_state, origin_zip,
+            dest_city, dest_state, dest_zip
+        )
+        miles = route_details['miles']
         result.total_miles = miles
-        result.pricing_notes.append(f"Calculated distance: {miles} miles")
+        result.pricing_notes.append(f"Distance: {miles} miles ({route_details['calculation_method']})")
         
         # Step 2: Get market rates
-        avg_rate, low_rate, high_rate = self.market_analyzer.get_market_rates(
-            origin_state, dest_state, equipment_type
-        )
+        if self.market_analyzer:
+            avg_rate, low_rate, high_rate = self.market_analyzer.get_market_rates(
+                origin_state, dest_state, equipment_type
+            )
+        else:
+            # Use default rates when no database available
+            base_rates = {
+                "Van": (Decimal("2.00"), Decimal("1.75"), Decimal("2.50")),
+                "Reefer": (Decimal("2.50"), Decimal("2.20"), Decimal("3.00")),
+                "Flatbed": (Decimal("2.30"), Decimal("2.00"), Decimal("2.80")),
+            }
+            avg_rate, low_rate, high_rate = base_rates.get(equipment_type, (Decimal("2.00"), Decimal("1.75"), Decimal("2.50")))
+            
         result.market_average = avg_rate
         result.market_low = low_rate
         result.market_high = high_rate
         
         # Step 3: Assess market conditions
-        market_condition = self.market_analyzer.assess_market_condition(
-            origin_state, dest_state, pickup_date
-        )
+        if self.market_analyzer:
+            market_condition = self.market_analyzer.assess_market_condition(
+                origin_state, dest_state, pickup_date
+            )
+        else:
+            # Simple market assessment based on day of week
+            pickup_dt = datetime.strptime(pickup_date.split('T')[0], "%Y-%m-%d")
+            day_of_week = pickup_dt.weekday()
+            if day_of_week in [0, 4]:  # Monday or Friday
+                market_condition = MarketCondition.TIGHT
+            elif day_of_week in [5, 6]:  # Weekend
+                market_condition = MarketCondition.LOOSE
+            else:
+                market_condition = MarketCondition.BALANCED
+                
         result.market_condition = market_condition
         
         # Step 4: Calculate base rate with adjustments
