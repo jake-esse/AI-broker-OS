@@ -3,3 +3,29 @@ __pycache__/
 *.sqlite
 .env
 AI-broker-OS/
+
+# Data directories
+data/logs/
+data/temp/
+
+# Python cache
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.sqlite
+*.db
