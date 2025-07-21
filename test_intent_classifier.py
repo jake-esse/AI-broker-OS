@@ -1,6 +1,36 @@
 #!/usr/bin/env python3
+# --------------------------- test_intent_classifier.py ----------------------------
 """
-Test script for email intent classifier
+AI-Broker MVP · Email Intent Classifier Test Suite
+
+OVERVIEW:
+This test suite validates the email intent classification system to ensure
+accurate identification of freight load tenders versus other email types.
+It tests various email scenarios including edge cases and ambiguous content.
+
+WORKFLOW:
+1. Define test cases covering all email intent categories
+2. Run classification on each test case
+3. Validate classification accuracy and confidence scores
+4. Display comprehensive results and metrics
+5. Identify any misclassifications for improvement
+
+BUSINESS LOGIC:
+- Tests real-world email patterns from freight industry
+- Validates confidence threshold compliance with ARCHITECTURE.md
+- Ensures non-load emails are properly filtered
+- Verifies edge case handling and fallback behavior
+
+TECHNICAL ARCHITECTURE:
+- Standalone test script with no external dependencies
+- Uses production classifier with test data
+- Comprehensive result analysis and reporting
+- Performance metrics for classification speed
+
+DEPENDENCIES:
+- Local module: email_intent_classifier
+- No external API calls required for testing
+- Uses same LLM configuration as production
 """
 
 from email_intent_classifier import classify_email_content, should_process_for_load_intake

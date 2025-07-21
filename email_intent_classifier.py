@@ -104,13 +104,13 @@ class ClassificationResult:
             "classified_at": self.classified_at
         }
 
-    def should_process_automatically(self, threshold: float = 0.8) -> bool:
+    def should_process_automatically(self, threshold: float = 0.85) -> bool:
         """
         Determine if classification confidence is high enough for automatic processing.
         
-        BUSINESS LOGIC:
-        - High confidence (>0.8): Process automatically
-        - Medium confidence (0.6-0.8): Requires human review
+        BUSINESS LOGIC (per ARCHITECTURE.md):
+        - High confidence (>0.85): Process automatically
+        - Medium confidence (0.6-0.85): Requires human review
         - Low confidence (<0.6): Escalate to human
         """
         return self.confidence >= threshold
@@ -370,7 +370,7 @@ def classify_email_content(subject: str, body: str, sender_email: str = "") -> C
     return classifier.classify_email(subject, body, sender_email)
 
 def should_process_for_load_intake(classification: ClassificationResult, 
-                                   confidence_threshold: float = 0.7) -> bool:
+                                   confidence_threshold: float = 0.85) -> bool:
     """
     Determine if email should be processed for load intake.
     

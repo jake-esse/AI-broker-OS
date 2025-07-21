@@ -44,12 +44,16 @@ import { corsHeaders } from '../_shared/cors.ts'
 // Defines the expected structure of incoming load data from Intake Agent
 
 interface LoadData {
-  // Required fields - must be present for successful processing
-  origin_zip: string
-  dest_zip: string  
-  pickup_dt: string // ISO 8601 timestamp
-  equipment: string // Van, Flatbed, Reefer, etc.
-  weight_lb: number
+  // Required fields - must be present for successful processing (per DEV_PLAN.md)
+  origin_city: string
+  origin_state: string
+  origin_zip?: string  // Optional for additional precision
+  dest_city: string
+  dest_state: string
+  dest_zip?: string    // Optional for additional precision
+  pickup_date: string  // YYYY-MM-DD format
+  equipment_type: string // Van, Flatbed, Reefer, etc.
+  weight_lbs: number
   
   // Optional fields - may be extracted from email
   commodity?: string
@@ -121,33 +125,41 @@ function validateLoadData(data: any): { isValid: boolean; errors: string[] } {
   
   // Check required fields only if load is marked as complete
   if (!isIncomplete) {
-    if (!data.origin_zip || typeof data.origin_zip !== 'string') {
-      errors.push('origin_zip is required and must be a string')
+    if (!data.origin_city || typeof data.origin_city !== 'string') {
+      errors.push('origin_city is required and must be a string')
     }
     
-    if (!data.dest_zip || typeof data.dest_zip !== 'string') {
-      errors.push('dest_zip is required and must be a string')
+    if (!data.origin_state || typeof data.origin_state !== 'string') {
+      errors.push('origin_state is required and must be a string')
     }
     
-    if (!data.pickup_dt || typeof data.pickup_dt !== 'string') {
-      errors.push('pickup_dt is required and must be a string')
+    if (!data.dest_city || typeof data.dest_city !== 'string') {
+      errors.push('dest_city is required and must be a string')
     }
     
-    if (!data.equipment || typeof data.equipment !== 'string') {
-      errors.push('equipment is required and must be a string')
+    if (!data.dest_state || typeof data.dest_state !== 'string') {
+      errors.push('dest_state is required and must be a string')
     }
     
-    if (!data.weight_lb || typeof data.weight_lb !== 'number') {
-      errors.push('weight_lb is required and must be a number')
+    if (!data.pickup_date || typeof data.pickup_date !== 'string') {
+      errors.push('pickup_date is required and must be a string')
+    }
+    
+    if (!data.equipment_type || typeof data.equipment_type !== 'string') {
+      errors.push('equipment_type is required and must be a string')
+    }
+    
+    if (!data.weight_lbs || typeof data.weight_lbs !== 'number') {
+      errors.push('weight_lbs is required and must be a number')
     }
   }
   
   // Validate provided fields regardless of completeness
-  if (data.pickup_dt && typeof data.pickup_dt === 'string') {
-    // Validate ISO 8601 timestamp format
-    const pickupDate = new Date(data.pickup_dt)
-    if (isNaN(pickupDate.getTime())) {
-      errors.push('pickup_dt must be a valid ISO 8601 timestamp')
+  if (data.pickup_date && typeof data.pickup_date === 'string') {
+    // Validate YYYY-MM-DD date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(data.pickup_date)) {
+      errors.push('pickup_date must be in YYYY-MM-DD format')
     }
   }
   
@@ -245,12 +257,16 @@ serve(async (req: Request) => {
     const { data: insertedLoad, error: insertError } = await supabase
       .from('loads')
       .insert([{
-        // Required fields
-        origin_zip: loadData.origin_zip,
-        dest_zip: loadData.dest_zip,
-        pickup_dt: loadData.pickup_dt,
-        equipment: loadData.equipment,
-        weight_lb: loadData.weight_lb,
+        // Required fields (per DEV_PLAN.md schema)
+        origin_city: loadData.origin_city,
+        origin_state: loadData.origin_state,
+        ...(loadData.origin_zip && { origin_zip: loadData.origin_zip }),
+        dest_city: loadData.dest_city,
+        dest_state: loadData.dest_state,
+        ...(loadData.dest_zip && { dest_zip: loadData.dest_zip }),
+        pickup_date: loadData.pickup_date,
+        equipment_type: loadData.equipment_type,
+        weight_lbs: loadData.weight_lbs,
         
         // Optional fields (only include if present)
         ...(loadData.commodity && { commodity: loadData.commodity }),

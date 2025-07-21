@@ -133,9 +133,9 @@ class PDFIntakeState(TypedDict):
 # LLM client for fallback processing
 llm = ChatOpenAI(model=MODEL, temperature=0.0)
 
-# Required fields for load validation (same as email intake)
+# Required fields for load validation (matching DEV_PLAN.md schema)
 REQUIRED_FIELDS = ["origin_city", "origin_state", "dest_city", "dest_state", 
-                   "pickup_date", "equipment_type", "weight_lb"]
+                   "pickup_date", "equipment_type", "weight_lbs"]
 
 # ╔══════════ 2. Reducto API Integration ═══════════════════════════════════════
 
@@ -191,13 +191,13 @@ def extract_pdf_with_reducto(pdf_path: str = None, pdf_url: str = None) -> Dict[
                 "pickup_date": {"type": "string", "description": "Pickup date (YYYY-MM-DD format)"},
                 "delivery_date": {"type": "string", "description": "Delivery date (YYYY-MM-DD format)"},
                 "equipment_type": {"type": "string", "description": "Equipment type (Van, Flatbed, Reefer, etc.)"},
-                "weight_lb": {"type": "number", "description": "Weight in pounds"},
+                "weight_lbs": {"type": "number", "description": "Weight in pounds"},
                 "commodity": {"type": "string", "description": "What is being shipped"},
                 "pieces": {"type": "number", "description": "Number of pieces/pallets"},
                 "special_instructions": {"type": "string", "description": "Special handling requirements"}
             },
             "required": ["origin_city", "origin_state", "dest_city", "dest_state", 
-                        "pickup_date", "equipment_type", "weight_lb"]
+                        "pickup_date", "equipment_type", "weight_lbs"]
         }
     }
     
@@ -315,7 +315,7 @@ def extract_pdf_with_openai_fallback(pdf_content: str) -> Dict[str, Any]:
     - dest_state: delivery state (2-letter code)
     - pickup_date: pickup date (YYYY-MM-DD format)
     - equipment_type: equipment type (Van, Flatbed, Reefer, etc.)
-    - weight_lb: weight in pounds (number only)
+    - weight_lbs: weight in pounds (number only)
 
     OPTIONAL fields (include if available):
     - commodity: what's being shipped
@@ -527,12 +527,12 @@ def validate_extracted_data(state: PDFIntakeState) -> Dict[str, Any]:
     load_data = structured_data.copy()
     
     # Validate weight
-    if load_data.get("weight_lb"):
+    if load_data.get("weight_lbs"):
         try:
-            load_data["weight_lb"] = int(float(load_data["weight_lb"]))
+            load_data["weight_lbs"] = int(float(load_data["weight_lbs"]))
         except (ValueError, TypeError):
             validation_errors.append("Invalid weight format")
-            load_data["weight_lb"] = None
+            load_data["weight_lbs"] = None
     
     # Validate date format (simplified)
     pickup_date = load_data.get("pickup_date")
@@ -588,7 +588,8 @@ def save_to_database(state: PDFIntakeState) -> Dict[str, Any]:
         return {"errors": ["No load data to save"]}
     
     # Check if data quality is sufficient for automatic processing
-    if len(validation_errors) > 2 or confidence < 0.5:
+    # Using ARCHITECTURE.md thresholds: <60% requires escalation
+    if len(validation_errors) > 2 or confidence < 0.6:
         print("⚠️ Data quality below threshold - manual review required")
         return {"errors": ["Data quality insufficient for automatic processing"]}
     

@@ -63,6 +63,9 @@ from email_intent_classifier import (
     classify_email_content,
     should_process_for_load_intake
 )
+# Import actual intake agents for integration
+from intake_graph import agent as intake_agent
+from pdf_intake_agent import build_pdf_intake_agent
 
 # ╔══════════ 1. Universal Input Architecture ═══════════════════════════════════
 
@@ -292,8 +295,8 @@ class IntakeDecisionFramework:
     
     def __init__(self):
         # Confidence thresholds from ARCHITECTURE.md
-        self.autonomous_threshold = 0.85
-        self.human_review_threshold = 0.60
+        self.autonomous_threshold = 0.85  # >85% for autonomous processing
+        self.human_review_threshold = 0.60  # 60-85% requires human review
         
     def make_processing_decision(self, universal_input: UniversalInput, 
                                intent_result: ClassificationResult) -> ProcessingDecision:
@@ -585,84 +588,118 @@ def execute_processing(state: UnifiedIntakeState) -> Dict[str, Any]:
         return {"errors": [f"Unknown workflow: {target_workflow}"]}
 
 def _execute_email_processing(universal_input_dict: dict) -> Dict[str, Any]:
-    """Execute email-based load intake processing."""
+    """Execute email-based load intake processing using actual intake_graph."""
     
-    print("📧 Processing email content...")
+    print("📧 Processing email content with intake_graph...")
     
-    # For now, simulate successful email processing
-    # In production, this would call the full intake_graph workflow
-    
+    # Extract email content and metadata
     content = universal_input_dict.get("content", "")
+    source_metadata = universal_input_dict.get("source_metadata", {})
     
-    # Simple extraction for demo - in production use full intake_graph
-    load_data = {
-        "origin_city": "Dallas",
-        "origin_state": "TX", 
-        "dest_city": "Miami",
-        "dest_state": "FL",
-        "pickup_date": "2024-07-22",
-        "equipment_type": "Van",
-        "weight_lb": 35000,
-        "commodity": "Electronics",
-        "received_at": datetime.now().isoformat(),
-        "intake_source": "EMAIL",
-        "status": "NEW_RFQ",
-        "email_msg_id": f"unified-{uuid.uuid4()}"
-    }
+    # Generate unique thread ID for checkpointing
+    thread_id = f"unified-intake-{uuid.uuid4()}"
     
     try:
-        result = supabase.table("loads").insert(load_data).execute()
-        load_id = result.data[0]["id"] if result.data else None
+        # Execute the actual intake graph workflow
+        result = intake_agent.invoke(
+            {
+                "raw_text": content,
+                "email_from": source_metadata.get("sender", ""),
+                "email_message_id": source_metadata.get("message_id", f"<unified-{uuid.uuid4()}@ai-broker.com>"),
+                "email_subject": source_metadata.get("subject", "Load Request")
+            },
+            config={"thread_id": thread_id}
+        )
         
-        print(f"✅ Email load saved (ID: {load_id})")
+        # Extract load data from result
+        load_data = result.get("load", {})
+        missing = result.get("missing", [])
         
-        return {
-            "load_data": load_data,
-            "load_id": load_id,
-            "extraction_confidence": 0.8
-        }
-        
+        if not missing and load_data:
+            # Complete load was processed successfully
+            # Note: intake_graph handles database saving via Edge Function
+            return {
+                "load_data": load_data,
+                "extraction_confidence": 0.9,
+                "processing_metadata": {
+                    "thread_id": thread_id,
+                    "workflow": "intake_graph",
+                    "complete": True
+                }
+            }
+        else:
+            # Missing information - intake_graph will have sent email request
+            return {
+                "load_data": load_data,
+                "extraction_confidence": 0.7,
+                "processing_metadata": {
+                    "thread_id": thread_id,
+                    "workflow": "intake_graph",
+                    "missing_fields": missing,
+                    "complete": False
+                }
+            }
+            
     except Exception as e:
-        return {"errors": [f"Database save failed: {str(e)}"]}
+        return {"errors": [f"Email processing failed: {str(e)}"]}
 
 def _execute_pdf_processing(universal_input_dict: dict) -> Dict[str, Any]:
-    """Execute PDF-based load intake processing."""
+    """Execute PDF-based load intake processing using actual pdf_intake_agent."""
     
-    # For now, simulate PDF processing
-    # In production, this would call the full pdf_intake_agent
+    print("📄 Processing PDF attachment with pdf_intake_agent...")
     
-    print("📄 Processing PDF attachment...")
+    # Extract metadata for PDF processing
+    source_metadata = universal_input_dict.get("source_metadata", {})
+    attachments = universal_input_dict.get("attachments", [])
     
-    # Simulate successful PDF extraction
-    load_data = {
-        "origin_city": "San Antonio",
-        "origin_state": "TX",
-        "dest_city": "Miami", 
-        "dest_state": "FL",
-        "pickup_date": "2024-07-22",
-        "equipment_type": "Van",
-        "weight_lb": 35000,
-        "commodity": "Electronics",
-        "received_at": datetime.now().isoformat(),
-        "intake_source": "PDF",
-        "status": "NEW_RFQ",
-        "email_msg_id": f"pdf-unified-{uuid.uuid4()}"
+    # Find PDF attachment
+    pdf_attachment = next((att for att in attachments if att.get("type") == "pdf"), None)
+    
+    if not pdf_attachment:
+        return {"errors": ["No PDF attachment found in universal input"]}
+    
+    # Build PDF intake agent
+    pdf_agent = build_pdf_intake_agent()
+    
+    # Prepare state for PDF agent
+    # Note: In production, we'd extract actual PDF file path or URL
+    pdf_state = {
+        "pdf_path": pdf_attachment.get("file_path"),  # Would need actual file handling
+        "pdf_url": pdf_attachment.get("url"),  # Alternative if stored in cloud
+        "email_subject": source_metadata.get("subject", "PDF Load Tender"),
+        "email_body": universal_input_dict.get("content", ""),
+        "sender_email": source_metadata.get("sender", "shipper@example.com")
     }
     
     try:
-        result = supabase.table("loads").insert(load_data).execute()
-        load_id = result.data[0]["id"] if result.data else None
+        # Execute PDF intake workflow
+        result = pdf_agent.invoke(pdf_state)
         
-        print(f"✅ PDF load saved (ID: {load_id})")
+        # Extract results
+        load_id = result.get("load_id")
+        load_data = result.get("load_data", {})
+        extraction_confidence = result.get("extraction_confidence", 0.0)
+        errors = result.get("errors", [])
         
-        return {
-            "load_data": load_data,
-            "load_id": load_id,
-            "extraction_confidence": 0.9
-        }
-        
+        if load_id and not errors:
+            return {
+                "load_data": load_data,
+                "load_id": load_id,
+                "extraction_confidence": extraction_confidence,
+                "processing_metadata": {
+                    "workflow": "pdf_intake_agent",
+                    "extraction_method": result.get("processing_metadata", {}).get("extraction_method", "unknown")
+                }
+            }
+        else:
+            return {
+                "errors": errors or ["PDF processing failed without specific error"],
+                "load_data": load_data,
+                "extraction_confidence": extraction_confidence
+            }
+            
     except Exception as e:
-        return {"errors": [f"PDF processing failed: {str(e)}"]}
+        return {"errors": [f"PDF processing error: {str(e)}"]}
 
 def summary(state: UnifiedIntakeState) -> Dict[str, Any]:
     """
