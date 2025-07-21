@@ -104,11 +104,11 @@ This document outlines the comprehensive development plan for AI-Broker v1, star
      - Verify domain (your business domain)
      - Create API key with full permissions
      - Create email templates folder
-   - **Postmark Account**:
-     - Sign up at postmarkapp.com
-     - Configure inbound webhook URL
-     - Set up forwarding rules
-     - Get Server API token
+   - **OAuth Email Integration** (Already Implemented):
+     - **Google OAuth**: Create OAuth app in Google Cloud Console for Gmail API access
+     - **Microsoft OAuth**: Create OAuth app in Azure AD for Outlook/Exchange access
+     - **IMAP Configuration**: Generic IMAP support for other email providers
+     - Configure OAuth scopes for email reading and sending
 
 3. **AI & Document Services**
    - **OpenAI**: Get API key with GPT-4 access
@@ -127,7 +127,15 @@ SUPABASE_URL=your_project_url
 SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_key
 RESEND_API_KEY=your_resend_key
-POSTMARK_SERVER_TOKEN=your_postmark_token
+
+// OAuth Email Configuration (Already Implemented)
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+MICROSOFT_CLIENT_ID=your_microsoft_oauth_client_id
+MICROSOFT_CLIENT_SECRET=your_microsoft_oauth_client_secret
+OAUTH_REDIRECT_URI=your_oauth_callback_url
+
+// AI Services
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key
 REDUCTO_API_KEY=your_reducto_key
@@ -838,10 +846,11 @@ function QuoteDisplay({ quote }: { quote: any }) {
 
 #### Day 1-2: Email Integration
 
-**Inbound Email Processing:**
+**OAuth Email Processing:**
 ```typescript
-// app/api/webhooks/email/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+// lib/email/oauth-processor.ts
+import { OAuth2Client } from 'google-auth-library'
+import { Client } from '@microsoft/microsoft-graph-client'
 import { createClient } from '@supabase/supabase-js'
 import { IntakeAgent } from '@/lib/agents/intake'
 
@@ -850,48 +859,63 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function POST(request: NextRequest) {
-  try {
-    // Parse Postmark webhook
-    const payload = await request.json()
+export class EmailOAuthProcessor {
+  async processGmailMessages(accessToken: string, brokerId: string) {
+    const oauth2Client = new OAuth2Client()
+    oauth2Client.setCredentials({ access_token: accessToken })
+    
+    // Get unread messages
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+    const messages = await gmail.users.messages.list({
+      userId: 'me',
+      q: 'is:unread'
+    })
+    
+    for (const message of messages.data.messages || []) {
+      const emailData = await this.extractEmailData(gmail, message.id)
+      await this.processEmailForLoad(emailData, brokerId)
+    }
+  }
+  
+  async processMicrosoftMessages(accessToken: string, brokerId: string) {
+    const graphClient = Client.init({
+      authProvider: (done) => done(null, accessToken)
+    })
+    
+    // Get unread messages
+    const messages = await graphClient.api('/me/messages')
+      .filter('isRead eq false')
+      .get()
+    
+    for (const message of messages.value) {
+      const emailData = await this.extractMicrosoftEmailData(message)
+      await this.processEmailForLoad(emailData, brokerId)
+    }
+  }
+  
+  private async extractEmailData(gmail: any, messageId: string) {
+    const message = await gmail.users.messages.get({
+      userId: 'me',
+      id: messageId
+    })
     
     // Extract email details
-    const emailData = {
-      from: payload.From,
-      to: payload.To,
-      subject: payload.Subject,
-      content: payload.TextBody || payload.HtmlBody,
-      attachments: payload.Attachments || [],
-      messageId: payload.MessageID,
+    return {
+      from: this.getHeaderValue(message.data.payload.headers, 'From'),
+      to: this.getHeaderValue(message.data.payload.headers, 'To'),
+      subject: this.getHeaderValue(message.data.payload.headers, 'Subject'),
+      content: this.extractEmailBody(message.data.payload),
+      messageId: message.data.id,
     }
+  }
     
-    // Find or create broker by email
-    const { data: broker } = await supabase
-      .from('brokers')
-      .select('*')
-      .eq('email', emailData.from)
-      .single()
-    
-    if (!broker) {
-      // Auto-create trial account
-      const { data: newBroker } = await supabase
-        .from('brokers')
-        .insert({
-          email: emailData.from,
-          company_name: emailData.from.split('@')[0],
-          subscription_tier: 'trial',
-        })
-        .select()
-        .single()
-        
-      broker = newBroker
-    }
-    
+  
+  private async processEmailForLoad(emailData: any, brokerId: string) {
     // Process with intake agent
     const intakeAgent = new IntakeAgent()
     const result = await intakeAgent.process_quote_request({
-      broker_id: broker.id,
-      channel: 'email',
+      broker_id: brokerId,
+      channel: 'oauth_email',
       content: emailData.content,
       raw_data: emailData,
     })
@@ -904,19 +928,29 @@ export async function POST(request: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           load_id: result.load_id,
-          broker_id: broker.id,
+          broker_id: brokerId,
         }),
       })
     }
-    
-    return NextResponse.json({ success: true })
-    
-  } catch (error) {
-    console.error('Email webhook error:', error)
-    return NextResponse.json(
-      { error: 'Processing failed' },
-      { status: 500 }
-    )
+  }
+  
+  private getHeaderValue(headers: any[], name: string): string {
+    const header = headers.find(h => h.name.toLowerCase() === name.toLowerCase())
+    return header ? header.value : ''
+  }
+  
+  private extractEmailBody(payload: any): string {
+    // Extract plain text or HTML body from email payload
+    if (payload.parts) {
+      for (const part of payload.parts) {
+        if (part.mimeType === 'text/plain' && part.body.data) {
+          return Buffer.from(part.body.data, 'base64').toString()
+        }
+      }
+    } else if (payload.body.data) {
+      return Buffer.from(payload.body.data, 'base64').toString()
+    }
+    return ''
   }
 }
 ```
@@ -1066,8 +1100,14 @@ if __name__ == "__main__":
    
    # Email configuration
    RESEND_API_KEY=your_production_resend_key
-   POSTMARK_SERVER_TOKEN=your_production_postmark_token
    EMAIL_FROM=quotes@yourdomain.com
+   
+   # OAuth Email Integration (Already Implemented)
+   GOOGLE_CLIENT_ID=your_production_google_oauth_client_id
+   GOOGLE_CLIENT_SECRET=your_production_google_oauth_client_secret
+   MICROSOFT_CLIENT_ID=your_production_microsoft_oauth_client_id
+   MICROSOFT_CLIENT_SECRET=your_production_microsoft_oauth_client_secret
+   OAUTH_REDIRECT_URI=https://app.yourdomain.com/auth/oauth/callback
    
    # AI Services
    OPENAI_API_KEY=your_production_openai_key
@@ -1081,9 +1121,9 @@ if __name__ == "__main__":
 
 2. **Domain & DNS Setup**
    - Configure custom domain in Vercel
-   - Set up email domain in Resend
+   - Set up email domain in Resend for outbound emails
    - Configure SPF, DKIM, DMARC records
-   - Set up inbound email forwarding
+   - Configure OAuth redirect URIs in Google Cloud Console and Azure AD
 
 3. **Security Hardening**
    - Enable Row Level Security on all tables

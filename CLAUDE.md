@@ -675,6 +675,66 @@ This plan is aggressive but achievable. We'll adjust timeline based on your lear
 - Reference specific plan sections in commit messages
 - Ensure plan status matches actual code state
 
+### Mandatory Progress Tracking on Commits
+
+**CRITICAL REQUIREMENT**: Every commit MUST include progress tracking updates to maintain project continuity and prevent work duplication across sessions.
+
+**Before creating any commit, ALWAYS execute these steps:**
+
+1. **Update DEV_PLAN.md Status**: Mark completed tasks and update implementation details
+2. **Document What Was Built**: Record specific files changed, features implemented, and integration points
+3. **Note Any New Tasks Discovered**: Add newly identified work to the development plan
+4. **Update Dependencies**: Mark dependent tasks as ready if prerequisites are now complete
+5. **Record Blockers/Challenges**: Document any issues encountered and their resolutions
+
+**Commit Message Format**:
+```
+[Phase/Component]: Brief description of changes
+
+Progress Updates:
+- Completed: [Task names from DEV_PLAN.md]
+- In Progress: [Currently active tasks]
+- New Tasks Added: [Any newly discovered work]
+- Blockers: [Any impediments and their status]
+
+Technical Changes:
+- [List of key files modified]
+- [Integration points established]
+- [Tests completed]
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Example Commit Message**:
+```
+Edge Functions: Deploy corrected fn_create_load with schema alignment
+
+Progress Updates:
+- Completed: Deploy Supabase Edge Function (fn_create_load) to production
+- Completed: Test complete multi-provider email processing workflow
+- New Tasks Added: Update intake_graph.py field name mapping for consistency
+- Blockers: None - all Phase 1 foundation work complete
+
+Technical Changes:
+- Updated supabase/functions/fn_create_load/index.ts with correct schema mapping
+- Fixed validation to match actual database field names (pickup_dt, weight_lb, equipment)
+- Deployed to production and verified with test_edge_function.py
+- End-to-end email processing workflow tested and operational
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Why This Matters**:
+- **Session Continuity**: Next session can immediately understand current progress
+- **Context Preservation**: Technical decisions and implementation details are captured
+- **Work Duplication Prevention**: Clear record of what's been completed vs. what needs work
+- **Debugging Support**: Detailed record of changes helps with troubleshooting
+- **Team Coordination**: Clear progress visibility for all project stakeholders
+
 ### Quality Assurance
 
 **Before ending any session:**
