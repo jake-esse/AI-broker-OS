@@ -165,7 +165,17 @@ export class IntakeAgent {
   private async createLoad(extractedData: any, emailData: any): Promise<string> {
     const supabase = await this.getSupabase()
     
-    // Create the load record
+    console.log('Creating load with data:', {
+      broker_id: emailData.brokerId,
+      customer_email: emailData.from,
+      pickup_location: extractedData.pickup_location,
+      delivery_location: extractedData.delivery_location,
+      weight: extractedData.weight,
+      commodity: extractedData.commodity,
+      pickup_date: extractedData.pickup_date
+    })
+    
+    // Create the load record - temporarily remove confidence_score
     const { data: load, error } = await supabase
       .from('loads')
       .insert({
@@ -178,7 +188,6 @@ export class IntakeAgent {
         pickup_date: extractedData.pickup_date || 'ASAP',
         special_requirements: extractedData.special_requirements,
         status: 'quoted',
-        confidence_score: 95,
         source: 'email',
         original_request: `Subject: ${emailData.subject}\n\n${emailData.content}`
       })
