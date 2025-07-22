@@ -412,18 +412,20 @@ export async function processOAuthAccounts() {
       try {
           console.log(`Processing ${connection.provider} for ${connection.email}`)
         
-        // Check if token is expired
-        if (connection.oauth_token_expires_at && 
-            new Date(connection.oauth_token_expires_at) < new Date()) {
-          // TODO: Implement token refresh
-          console.log(`Token expired for ${connection.email}, needs refresh`)
+        // Check if token is expired or will expire soon (within 5 minutes)
+        const tokenExpiresAt = connection.oauth_token_expires_at ? new Date(connection.oauth_token_expires_at) : null
+        const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000)
+        
+        if (tokenExpiresAt && tokenExpiresAt < fiveMinutesFromNow) {
+          console.log(`Token expired or expiring soon for ${connection.email}, refreshing...`)
           const newToken = await refreshAccessToken(connection)
           if (!newToken) {
             console.error(`Failed to refresh token for ${connection.email}`)
-            results.push({ email: connection.email, error: 'Token expired' })
+            results.push({ email: connection.email, error: 'Token refresh failed' })
             continue
           }
           connection.oauth_access_token = newToken
+          console.log(`Token refreshed successfully for ${connection.email}`)
         }
         
         // Check if this is the first time processing (no last_checked timestamp)
@@ -481,7 +483,107 @@ export async function processOAuthAccounts() {
 }
 
 async function refreshAccessToken(connection: any): Promise<string | null> {
-  // TODO: Implement token refresh logic for each provider
-  // For now, return null if token needs refresh
-  return null
+  console.log(`[refreshAccessToken] Refreshing token for ${connection.email} (${connection.provider})`)
+  
+  try {
+    if (connection.provider === 'gmail') {
+      const oauth2Client = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        `${process.env.NEXT_PUBLIC_URL}/api/auth/callback/google`
+      )
+      
+      oauth2Client.setCredentials({
+        refresh_token: connection.oauth_refresh_token
+      })
+      
+      const { credentials } = await oauth2Client.refreshAccessToken()
+      console.log('[refreshAccessToken] Google token refreshed successfully')
+      
+      // Update the stored tokens
+      const supabase = await createClient()
+      const expiresAt = credentials.expiry_date 
+        ? new Date(credentials.expiry_date).toISOString()
+        : new Date(Date.now() + 3600 * 1000).toISOString() // Default 1 hour
+        
+      await supabase
+        .from('email_connections')
+        .update({
+          oauth_access_token: credentials.access_token,
+          oauth_token_expires_at: expiresAt,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', connection.id)
+      
+      return credentials.access_token
+    } else if (connection.provider === 'outlook') {
+      // Microsoft token refresh
+      const tokenEndpoint = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+      const params = new URLSearchParams({
+        client_id: process.env.MICROSOFT_CLIENT_ID!,
+        client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+        refresh_token: connection.oauth_refresh_token,
+        grant_type: 'refresh_token',
+        scope: 'https://graph.microsoft.com/Mail.Read offline_access'
+      })
+      
+      const response = await fetch(tokenEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString()
+      })
+      
+      if (!response.ok) {
+        const error = await response.text()
+        console.error('[refreshAccessToken] Microsoft token refresh failed:', error)
+        return null
+      }
+      
+      const tokens = await response.json()
+      console.log('[refreshAccessToken] Microsoft token refreshed successfully')
+      
+      // Update the stored tokens
+      const supabase = await createClient()
+      await supabase
+        .from('email_connections')
+        .update({
+          oauth_access_token: tokens.access_token,
+          oauth_refresh_token: tokens.refresh_token || connection.oauth_refresh_token,
+          oauth_token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', connection.id)
+      
+      return tokens.access_token
+    }
+    
+    return null
+  } catch (error: any) {
+    console.error(`[refreshAccessToken] Error refreshing token for ${connection.email}:`, error)
+    
+    // Update connection status to indicate refresh failure
+    const supabase = await createClient()
+    const errorMessage = error.message || 'Unknown error'
+    
+    // Check if it's a refresh token issue
+    const isRefreshTokenInvalid = 
+      errorMessage.includes('invalid_grant') || 
+      errorMessage.includes('refresh_token') ||
+      error.code === 'invalid_grant'
+    
+    await supabase
+      .from('email_connections')
+      .update({
+        status: isRefreshTokenInvalid ? 'reconnect_required' : 'error',
+        error_message: isRefreshTokenInvalid 
+          ? 'Email connection expired. Please reconnect your email account.'
+          : `Token refresh failed: ${errorMessage}`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', connection.id)
+    
+    return null
+  }
 }

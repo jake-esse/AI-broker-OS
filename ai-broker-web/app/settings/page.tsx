@@ -120,6 +120,8 @@ export default function SettingsPage() {
         return <CheckCircle className="h-5 w-5 text-green-600" />
       case 'error':
         return <XCircle className="h-5 w-5 text-red-600" />
+      case 'reconnect_required':
+        return <AlertCircle className="h-5 w-5 text-orange-600" />
       default:
         return <AlertCircle className="h-5 w-5 text-yellow-600" />
     }
@@ -208,17 +210,26 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => checkEmails(connection.id)}
-                      disabled={refreshing === connection.id}
-                      className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {refreshing === connection.id ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        'Check Now'
-                      )}
-                    </button>
+                    {connection.status === 'reconnect_required' ? (
+                      <button
+                        onClick={() => connectOAuth(connection.provider as 'gmail' | 'outlook')}
+                        className="rounded-lg bg-orange-600 px-3 py-1 text-sm text-white hover:bg-orange-700"
+                      >
+                        Reconnect
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => checkEmails(connection.id)}
+                        disabled={refreshing === connection.id || connection.status === 'error'}
+                        className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {refreshing === connection.id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Check Now'
+                        )}
+                      </button>
+                    )}
                     <button
                       onClick={() => deleteConnection(connection.id)}
                       className="rounded-lg border border-red-200 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
