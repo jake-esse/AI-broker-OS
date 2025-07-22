@@ -195,7 +195,7 @@ export class ImapEmailProcessor {
 
 // Worker function to process IMAP accounts
 export async function processImapAccounts() {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   // Get all active IMAP connections
   const { data: connections, error } = await supabase

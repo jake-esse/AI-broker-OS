@@ -20,7 +20,14 @@ export class IntakeAgent {
   private supabase: any
 
   constructor() {
-    this.supabase = createClient()
+    // Supabase will be initialized when needed
+  }
+
+  private async getSupabase() {
+    if (!this.supabase) {
+      this.supabase = await createClient()
+    }
+    return this.supabase
   }
 
   async processEmail(emailData: {
@@ -156,7 +163,7 @@ export class IntakeAgent {
   }
 
   private async createLoad(extractedData: any, emailData: any): Promise<string> {
-    const supabase = await this.supabase
+    const supabase = await this.getSupabase()
     
     // Create the load record
     const { data: load, error } = await supabase

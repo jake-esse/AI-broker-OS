@@ -7,7 +7,14 @@ export class EmailOAuthProcessor {
   private supabase: any
 
   constructor() {
-    this.supabase = createClient()
+    // Supabase will be initialized when needed
+  }
+
+  private async getSupabase() {
+    if (!this.supabase) {
+      this.supabase = await createClient()
+    }
+    return this.supabase
   }
 
   async processGmailMessages(accessToken: string, brokerId: string) {
@@ -129,7 +136,7 @@ export class EmailOAuthProcessor {
       console.log(`[OAuth] Provider: ${provider}`)
       
       // Store email in database
-      const supabase = await this.supabase
+      const supabase = await this.getSupabase()
       const { data: email, error: emailError } = await supabase
         .from('emails')
         .insert({
@@ -268,75 +275,88 @@ export class EmailOAuthProcessor {
 
 // Worker function to process OAuth email accounts
 export async function processOAuthAccounts() {
-  const supabase = createClient()
-  const processor = new EmailOAuthProcessor()
+  console.log('[processOAuthAccounts] Starting OAuth processing...')
   
-  // Get all active OAuth connections
-  const { data: connections, error } = await supabase
-    .from('email_connections')
-    .select('*')
-    .in('provider', ['gmail', 'outlook'])
-    .eq('status', 'active')
-    .not('oauth_access_token', 'is', null)
+  try {
+    const supabase = await createClient()
+    const processor = new EmailOAuthProcessor()
+    
+    console.log('[processOAuthAccounts] Fetching email connections...')
+    
+    // Get all active OAuth connections
+    const { data: connections, error } = await supabase
+      .from('email_connections')
+      .select('*')
+      .in('provider', ['gmail', 'outlook'])
+      .eq('status', 'active')
+      .not('oauth_access_token', 'is', null)
 
-  if (error || !connections) {
-    console.error('Error fetching OAuth connections:', error)
-    return { processed: 0, error: error?.message }
-  }
+    console.log('[processOAuthAccounts] Query result:', { connections, error })
 
-  if (connections.length === 0) {
-    console.log('No OAuth connections found')
-    return { processed: 0 }
-  }
-
-  let totalProcessed = 0
-
-  // Process each connection
-  for (const connection of connections) {
-    try {
-      console.log(`Processing ${connection.provider} for ${connection.email}`)
-      
-      // Check if token is expired
-      if (connection.oauth_token_expires_at && 
-          new Date(connection.oauth_token_expires_at) < new Date()) {
-        // TODO: Implement token refresh
-        console.log(`Token expired for ${connection.email}, needs refresh`)
-        const newToken = await refreshAccessToken(connection)
-        if (!newToken) {
-          console.error(`Failed to refresh token for ${connection.email}`)
-          continue
-        }
-        connection.oauth_access_token = newToken
-      }
-      
-      if (connection.provider === 'gmail') {
-        await processor.processGmailMessages(connection.oauth_access_token, connection.broker_id)
-      } else if (connection.provider === 'outlook') {
-        await processor.processMicrosoftMessages(connection.oauth_access_token, connection.broker_id)
-      }
-
-      // Update last checked time
-      await supabase
-        .from('email_connections')
-        .update({ last_checked: new Date().toISOString() })
-        .eq('id', connection.id)
-
-      totalProcessed++
-    } catch (error: any) {
-      console.error(`Error processing OAuth for ${connection.email}:`, error)
-      
-      // Update connection status if failed
-      await supabase
-        .from('email_connections')
-        .update({ 
-          status: 'error',
-          error_message: error.message 
-        })
-        .eq('id', connection.id)
+    if (error) {
+      console.error('[processOAuthAccounts] Error fetching OAuth connections:', error)
+      return { processed: 0, error: error.message }
     }
-  }
 
-  return { processed: totalProcessed }
+    if (!connections || connections.length === 0) {
+      console.log('[processOAuthAccounts] No OAuth connections found')
+      return { processed: 0 }
+    }
+
+    console.log(`[processOAuthAccounts] Found ${connections.length} OAuth connections`)
+
+    let totalProcessed = 0
+
+    // Process each connection
+    for (const connection of connections) {
+      try {
+          console.log(`Processing ${connection.provider} for ${connection.email}`)
+        
+        // Check if token is expired
+        if (connection.oauth_token_expires_at && 
+            new Date(connection.oauth_token_expires_at) < new Date()) {
+          // TODO: Implement token refresh
+          console.log(`Token expired for ${connection.email}, needs refresh`)
+          const newToken = await refreshAccessToken(connection)
+          if (!newToken) {
+            console.error(`Failed to refresh token for ${connection.email}`)
+            continue
+          }
+          connection.oauth_access_token = newToken
+        }
+        
+        if (connection.provider === 'gmail') {
+          await processor.processGmailMessages(connection.oauth_access_token, connection.broker_id)
+        } else if (connection.provider === 'outlook') {
+          await processor.processMicrosoftMessages(connection.oauth_access_token, connection.broker_id)
+        }
+
+        // Update last checked time
+        await supabase
+          .from('email_connections')
+          .update({ last_checked: new Date().toISOString() })
+          .eq('id', connection.id)
+
+        totalProcessed++
+      } catch (error: any) {
+        console.error(`Error processing OAuth for ${connection.email}:`, error)
+        
+        // Update connection status if failed
+        await supabase
+          .from('email_connections')
+          .update({ 
+            status: 'error',
+            error_message: error.message 
+          })
+          .eq('id', connection.id)
+      }
+    }
+
+    return { processed: totalProcessed }
+  } catch (error: any) {
+    console.error('[processOAuthAccounts] Unexpected error:', error)
+    return { processed: 0, error: error.message }
+  }
 }
 
 async function refreshAccessToken(connection: any): Promise<string | null> {
