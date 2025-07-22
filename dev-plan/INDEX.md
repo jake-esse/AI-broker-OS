@@ -62,9 +62,10 @@ AI-Broker v1 is an intelligent freight brokerage automation platform, starting w
   - LoadBlast campaign engine
   - [View Details](./week-10-11.md)
 
-- **Week 12-13: Dispatch & Documentation** [TODO]
-  - Automated dispatch system
-  - Document generation
+- **Week 12-13: CRM & Automated Outreach** [TODO]
+  - CRM & calendar integration
+  - Capacity monitoring & optimization
+  - Automated shipper discovery & outreach
   - [View Details](./week-12-13.md)
 
 - **Week 14-15: Tracking & Visibility** [TODO]

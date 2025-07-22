@@ -34,6 +34,7 @@
 3. **Dynamic Pricing**: Real-time rate adjustments based on market
 4. **Customer Portal**: Self-service quote requests and tracking
 5. **Advanced Analytics**: Profitability analysis by lane/customer
+6. **CRM & Capacity Optimization**: Automated outreach when brokers have excess capacity (Weeks 12-13)
 
 ### Medium Priority (6-12 Months)
 1. **International Shipping**: Cross-border freight support
