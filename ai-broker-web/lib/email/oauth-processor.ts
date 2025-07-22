@@ -18,27 +18,42 @@ export class EmailOAuthProcessor {
   }
 
   async processGmailMessages(accessToken: string, brokerId: string) {
+    console.log('[processGmailMessages] Starting Gmail processing for broker:', brokerId)
     try {
-      const oauth2Client = new OAuth2Client()
+      const oauth2Client = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        `${process.env.NEXT_PUBLIC_URL}/api/auth/callback/google`
+      )
       oauth2Client.setCredentials({ access_token: accessToken })
       
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
       
-      // Get unread messages
+      console.log('[processGmailMessages] Fetching unread messages...')
+      // Get unread messages - remove category filter for now
       const messagesResponse = await gmail.users.messages.list({
         userId: 'me',
-        q: 'is:unread category:primary'
+        q: 'is:unread'
       })
       
       const messages = messagesResponse.data.messages || []
+      console.log(`[processGmailMessages] Found ${messages.length} unread messages`)
       
       for (const message of messages) {
         if (!message.id) continue
         
+        console.log(`[processGmailMessages] Processing message ID: ${message.id}`)
         const emailData = await this.extractGmailData(gmail, message.id)
+        console.log(`[processGmailMessages] Extracted email data:`, {
+          from: emailData.from,
+          subject: emailData.subject,
+          date: emailData.date
+        })
+        
         await this.processEmailForLoad(emailData, brokerId, 'gmail')
         
         // Mark as read
+        console.log(`[processGmailMessages] Marking message ${message.id} as read`)
         await gmail.users.messages.modify({
           userId: 'me',
           id: message.id,
@@ -47,8 +62,17 @@ export class EmailOAuthProcessor {
           }
         })
       }
-    } catch (error) {
-      console.error('Error processing Gmail messages:', error)
+      
+      console.log('[processGmailMessages] Gmail processing complete')
+    } catch (error: any) {
+      console.error('[processGmailMessages] Error processing Gmail messages:', error)
+      console.error('[processGmailMessages] Error details:', error.message, error.code)
+      if (error.response) {
+        console.error('[processGmailMessages] API Response:', error.response.data)
+      }
+      if (error.code === 403) {
+        console.error('[processGmailMessages] Permission denied - check Gmail API scopes')
+      }
       throw error
     }
   }
