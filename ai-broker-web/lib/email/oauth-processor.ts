@@ -251,24 +251,44 @@ export async function processOAuthAccounts() {
   const { data: connections, error } = await supabase
     .from('email_connections')
     .select('*')
-    .in('provider', ['google', 'azure'])
-    .eq('is_active', true)
+    .in('provider', ['gmail', 'outlook'])
+    .eq('status', 'active')
+    .not('oauth_access_token', 'is', null)
 
   if (error || !connections) {
     console.error('Error fetching OAuth connections:', error)
-    return
+    return { processed: 0, error: error?.message }
   }
+
+  if (connections.length === 0) {
+    console.log('No OAuth connections found')
+    return { processed: 0 }
+  }
+
+  let totalProcessed = 0
 
   // Process each connection
   for (const connection of connections) {
     try {
-      // Get fresh access token from stored refresh token
-      const accessToken = await refreshAccessToken(connection)
+      console.log(`Processing ${connection.provider} for ${connection.email}`)
       
-      if (connection.provider === 'google') {
-        await processor.processGmailMessages(accessToken, connection.user_id)
-      } else if (connection.provider === 'azure') {
-        await processor.processMicrosoftMessages(accessToken, connection.user_id)
+      // Check if token is expired
+      if (connection.oauth_token_expires_at && 
+          new Date(connection.oauth_token_expires_at) < new Date()) {
+        // TODO: Implement token refresh
+        console.log(`Token expired for ${connection.email}, needs refresh`)
+        const newToken = await refreshAccessToken(connection)
+        if (!newToken) {
+          console.error(`Failed to refresh token for ${connection.email}`)
+          continue
+        }
+        connection.oauth_access_token = newToken
+      }
+      
+      if (connection.provider === 'gmail') {
+        await processor.processGmailMessages(connection.oauth_access_token, connection.broker_id)
+      } else if (connection.provider === 'outlook') {
+        await processor.processMicrosoftMessages(connection.oauth_access_token, connection.broker_id)
       }
 
       // Update last checked time
@@ -277,22 +297,26 @@ export async function processOAuthAccounts() {
         .update({ last_checked: new Date().toISOString() })
         .eq('id', connection.id)
 
-    } catch (error) {
+      totalProcessed++
+    } catch (error: any) {
       console.error(`Error processing OAuth for ${connection.email}:`, error)
       
       // Update connection status if failed
       await supabase
         .from('email_connections')
         .update({ 
+          status: 'error',
           error_message: error.message 
         })
         .eq('id', connection.id)
     }
   }
+
+  return { processed: totalProcessed }
 }
 
-async function refreshAccessToken(connection: any): Promise<string> {
-  // This would implement token refresh logic for each provider
-  // For now, return the stored access token
-  return connection.access_token
+async function refreshAccessToken(connection: any): Promise<string | null> {
+  // TODO: Implement token refresh logic for each provider
+  // For now, return null if token needs refresh
+  return null
 }
