@@ -371,29 +371,78 @@ Always consult the freight brokerage guide when developing features to ensure te
 
 The PRD serves as the contract between business requirements and technical implementation. Keeping it current ensures all development work delivers the intended product value and user experience.
 
-## Context-Driven Development Process
+## Development Plan Structure & Progress Tracking
 
-**CRITICAL WORKFLOW**: This project uses a comprehensive documentation system to ensure all development decisions are informed by business requirements, technical architecture, and industry expertise. Always follow this process.
+**NEW MODULAR STRUCTURE**: The development plan has been reorganized into a modular folder structure for better navigation and progress tracking. Use this structure for all development work.
 
-### Required Context Consultation
+### Dev Plan Organization
+
+**Main Directory**: `/dev-plan/`
+
+**Core Files**:
+- **INDEX.md** - Main overview with progress tracking and navigation
+- **architecture.md** - Strategic analysis and core architecture components
+- **roadmap.md** - Future vision beyond Phase 4
+- **metrics.md** - Comprehensive KPIs and success metrics
+- **risk-mitigation.md** - Risk analysis and mitigation strategies
+
+**Weekly Detail Files**:
+- **week-1.md** - Foundation & Environment Setup [COMPLETED]
+- **week-2.md** - Core Agent Development [COMPLETED] 
+- **week-3.md** - Web Application Foundation [CURRENT]
+- **week-4.md** - Integration & Launch Prep
+- **week-5-6.md** - LTL Quoting System
+- **week-7.md** - Refrigerated Freight
+- **week-10-11.md** - Carrier Management & LoadBlast
+- And additional week files as needed...
+
+### Progress Tracking Workflow
+
+**ALWAYS start development sessions by:**
+
+1. **Check dev-plan/INDEX.md** - Review overall progress and current week status
+2. **Read current week file** - Get detailed tasks and technical specifications
+3. **Update status immediately** - Mark tasks as "in_progress" when starting work
+4. **Track completion** - Mark as "DONE" with completion date when finished
+
+### Progress Status Format
+
+**In INDEX.md, use this format:**
+```markdown
+- Week 3: Web Application Foundation [IN PROGRESS - started 2025-07-22]
+  - ✅ Next.js setup & authentication
+  - 🔄 Quote request interface (in progress)
+  - ❌ Real-time dashboard
+  - [View Details](./week-3.md)
+```
+
+**Status Icons**:
+- ✅ DONE - Task completed
+- 🔄 IN PROGRESS - Currently working on
+- ❌ TODO - Not yet started
+- ⚠️ BLOCKED - Waiting for dependency
+
+### Context Consultation Order
 
 **Before making any development decision, ALWAYS consult these files in order:**
 
-1. **docs/development/DEV_PLAN.md** - Check current phase, week-specific tasks, and implementation priorities
-2. **docs/business/PRD.md** - Verify feature requirements, user experience specifications, and success metrics
-3. **docs/architecture/ARCHITECTURE.md** - Ensure technical approach aligns with system design and patterns
-4. **docs/business/FREIGHT_BROKERAGE.md** - Understand industry context and business process requirements
+1. **dev-plan/INDEX.md** - Check current phase, week-specific tasks, and implementation priorities
+2. **dev-plan/week-X.md** - Get detailed specifications for current week's work
+3. **docs/business/PRD.md** - Verify feature requirements, user experience specifications, and success metrics
+4. **docs/architecture/ARCHITECTURE.md** - Ensure technical approach aligns with system design and patterns
+5. **docs/business/FREIGHT_BROKERAGE.md** - Understand industry context and business process requirements
 
 ### Decision-Making Framework
 
 **For Feature Development:**
 ```
-1. Check DEV_PLAN.md → What phase are we in? What's the current priority?
-2. Check PRD.md → What are the exact requirements for this feature?
-3. Check ARCHITECTURE.md → How should this be implemented technically?
-4. Check FREIGHT_BROKERAGE.md → What industry considerations apply?
-5. Implement with comprehensive comments referencing these contexts
-6. Update relevant files if implementation reveals new requirements
+1. Check dev-plan/INDEX.md → What phase are we in? What's the current priority?
+2. Check dev-plan/week-X.md → What are this week's specific tasks and specifications?
+3. Check PRD.md → What are the exact requirements for this feature?
+4. Check ARCHITECTURE.md → How should this be implemented technically?
+5. Check FREIGHT_BROKERAGE.md → What industry considerations apply?
+6. Implement with comprehensive comments referencing these contexts
+7. Update dev-plan files immediately to track progress
 ```
 
 **For Bug Fixes:**
@@ -402,13 +451,14 @@ The PRD serves as the contract between business requirements and technical imple
 2. Check PRD.md → What's the expected behavior?
 3. Check FREIGHT_BROKERAGE.md → Are there industry-specific edge cases?
 4. Fix the issue maintaining architectural consistency
+5. Update progress in relevant dev-plan week file
 ```
 
 **For New Requirements:**
 ```
 1. Update PRD.md → Add or modify functional requirements
 2. Update ARCHITECTURE.md → Adjust technical design if needed
-3. Update DEV_PLAN.md → Adjust timeline and priorities
+3. Update dev-plan/INDEX.md and relevant week files → Adjust timeline and priorities
 4. Ensure FREIGHT_BROKERAGE.md → Covers any new industry processes
 ```
 
@@ -450,11 +500,17 @@ When surfacing questions, use this format:
 
 ### File Maintenance Responsibilities
 
-**DEV_PLAN.md Updates:**
-- Mark completed tasks as done
-- Add new tasks discovered during implementation
-- Adjust timelines based on actual progress
-- Note blockers and their resolutions
+**dev-plan/INDEX.md Updates:**
+- Update overall progress status with completion dates
+- Mark current week and upcoming priorities
+- Track major milestones and phase completions
+- Note any timeline adjustments or blockers
+
+**dev-plan/week-X.md Updates:**
+- Mark individual tasks as completed with dates
+- Add implementation notes and technical details
+- Document any new tasks discovered during work
+- Record blockers and their resolutions
 
 **PRD.md Updates:**
 - Add new functional requirements
@@ -614,49 +670,58 @@ This plan is aggressive but achievable. We'll adjust timeline based on your lear
 
 ## Development Progress Tracking
 
-**CRITICAL FOR SESSION CONTINUITY**: All development progress must be tracked in `docs/development/DEV_PLAN.md` to enable seamless session resumption and prevent work duplication.
+**CRITICAL FOR SESSION CONTINUITY**: All development progress must be tracked in the modular `dev-plan/` structure to enable seamless session resumption and prevent work duplication.
 
 ### Progress Tracking Requirements
 
-**After completing any task, ALWAYS update DEV_PLAN.md:**
+**After completing any task, ALWAYS update the dev-plan files:**
 
-1. **Mark Completed Tasks**: Change status from "pending" to "completed"
-2. **Document Implementation Details**: Add notes about what was actually built
-3. **Record Blockers/Challenges**: Note any issues encountered and their resolutions
-4. **Update Dependencies**: Mark dependent tasks as ready if prerequisites are complete
-5. **Adjust Timeline**: Revise estimates based on actual completion times
-6. **Add New Tasks**: Document any additional work discovered during implementation
+1. **Update INDEX.md**: Change overall week status and completion dates
+2. **Update week-X.md**: Mark specific tasks as completed with implementation details  
+3. **Document Implementation Details**: Add notes about what was actually built
+4. **Record Blockers/Challenges**: Note any issues encountered and their resolutions
+5. **Update Dependencies**: Mark dependent tasks as ready if prerequisites are complete
+6. **Adjust Timeline**: Revise estimates based on actual completion times
+7. **Add New Tasks**: Document any additional work discovered during implementation
 
 ### Session Resumption Protocol
 
 **At the start of each session, ALWAYS:**
 
-1. **Read DEV_PLAN.md** to understand current progress and next priorities
-2. **Verify Implementation**: Quick check that completed tasks are actually done
-3. **Identify Blockers**: Review any outstanding issues that need resolution
-4. **Plan Current Session**: Select appropriate tasks for current session scope
-5. **Update Status**: Mark selected tasks as "in_progress" before beginning work
+1. **Read dev-plan/INDEX.md** to understand current progress and next priorities
+2. **Read current week file** to get detailed task specifications
+3. **Verify Implementation**: Quick check that completed tasks are actually done
+4. **Identify Blockers**: Review any outstanding issues that need resolution
+5. **Plan Current Session**: Select appropriate tasks for current session scope
+6. **Update Status**: Mark selected tasks as "in_progress" before beginning work
 
 ### Progress Documentation Format
 
-**When updating DEV_PLAN.md, use this format:**
-
+**When updating dev-plan/INDEX.md:**
 ```markdown
-### [Task Name] - COMPLETED
-**Status**: Completed on [Date]
+- Week 3: Web Application Foundation [COMPLETED - 2025-07-22]
+  - ✅ Next.js setup & authentication
+  - ✅ Quote request interface  
+  - ✅ Real-time dashboard
+  - [View Details](./week-3.md)
+```
+
+**When updating individual week files:**
+```markdown
+#### Day 1: Next.js Setup & Authentication - ✅ COMPLETED (2025-07-22)
 **Implementation Notes**: 
-- Specific details of what was built
-- File locations and key functions
-- Integration points established
-- Testing completed
+- Created Next.js app with TypeScript and Tailwind CSS
+- Integrated Supabase authentication with Google OAuth
+- Set up protected routes and middleware
+- Files: web-app/pages/*, web-app/lib/supabase.ts
 
 **Blockers Resolved**:
-- Issue description and solution
-- Dependencies that were addressed
+- Supabase RLS policies configured correctly
+- OAuth redirect URLs updated in Google Console
 
 **Next Steps Enabled**:
-- List tasks that can now proceed
-- Dependencies that are now satisfied
+- Quote request interface can now be built
+- User authentication is available for all features
 ```
 
 ### Status Values
@@ -671,7 +736,7 @@ This plan is aggressive but achievable. We'll adjust timeline based on your lear
 ### Integration with Git Workflow
 
 **When committing code:**
-- Include DEV_PLAN.md updates in the same commit
+- Include dev-plan file updates in the same commit
 - Reference specific plan sections in commit messages
 - Ensure plan status matches actual code state
 
@@ -681,7 +746,7 @@ This plan is aggressive but achievable. We'll adjust timeline based on your lear
 
 **Before creating any commit, ALWAYS execute these steps:**
 
-1. **Update DEV_PLAN.md Status**: Mark completed tasks and update implementation details
+1. **Update dev-plan Status**: Mark completed tasks in INDEX.md and relevant week files
 2. **Document What Was Built**: Record specific files changed, features implemented, and integration points
 3. **Note Any New Tasks Discovered**: Add newly identified work to the development plan
 4. **Update Dependencies**: Mark dependent tasks as ready if prerequisites are now complete
@@ -692,7 +757,7 @@ This plan is aggressive but achievable. We'll adjust timeline based on your lear
 [Phase/Component]: Brief description of changes
 
 Progress Updates:
-- Completed: [Task names from DEV_PLAN.md]
+- Completed: [Task names from dev-plan files]
 - In Progress: [Currently active tasks]
 - New Tasks Added: [Any newly discovered work]
 - Blockers: [Any impediments and their status]
@@ -738,8 +803,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ### Quality Assurance
 
 **Before ending any session:**
-- [ ] DEV_PLAN.md reflects all work completed in session
-- [ ] Status values are accurate and current
+- [ ] dev-plan/INDEX.md and relevant week files reflect all work completed in session
+- [ ] Status values are accurate and current  
 - [ ] Next session priorities are clearly identified
 - [ ] Any blockers are documented with context
 - [ ] Timeline adjustments are realistic and noted
