@@ -313,27 +313,22 @@ export default function SettingsPage() {
 
         {/* OAuth Setup Instructions */}
         <div className="rounded-lg bg-yellow-50 p-4">
-          <h3 className="font-semibold text-yellow-900 mb-2">OAuth Setup Required</h3>
+          <h3 className="font-semibold text-yellow-900 mb-2">Setup Instructions</h3>
           <p className="text-sm text-yellow-800 mb-3">
-            To connect your email accounts, you need to configure OAuth credentials:
+            To enable email monitoring:
           </p>
           <ol className="list-decimal list-inside space-y-2 text-sm text-yellow-700">
             <li>
-              <strong>Google:</strong> Go to{' '}
-              <a
-                href="https://console.cloud.google.com/apis/credentials"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Google Cloud Console
-              </a>
-              , create OAuth 2.0 credentials, and add{' '}
-              <code className="bg-yellow-100 px-1">{process.env.NEXT_PUBLIC_URL}/api/auth/callback/google</code>{' '}
-              as a redirect URI
+              <strong className="text-red-700">IMPORTANT:</strong> Run the loads table migration in Supabase SQL Editor:
+              <pre className="mt-2 bg-yellow-100 p-2 rounded text-xs overflow-x-auto">
+{`-- Copy contents of /supabase/migrations/create_loads_tables.sql`}
+              </pre>
             </li>
             <li>
-              <strong>Microsoft:</strong> Go to{' '}
+              <strong>For Gmail:</strong> OAuth is already configured ✓
+            </li>
+            <li>
+              <strong>For Outlook:</strong> Configure OAuth in{' '}
               <a
                 href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
                 target="_blank"
@@ -342,18 +337,6 @@ export default function SettingsPage() {
               >
                 Azure Portal
               </a>
-              , register an app, and add{' '}
-              <code className="bg-yellow-100 px-1">{process.env.NEXT_PUBLIC_URL}/api/auth/callback/microsoft</code>{' '}
-              as a redirect URI
-            </li>
-            <li>
-              Add the following to your <code className="bg-yellow-100 px-1">.env.local</code>:
-              <pre className="mt-2 bg-yellow-100 p-2 rounded text-xs overflow-x-auto">
-{`GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-MICROSOFT_CLIENT_ID=your-microsoft-client-id
-MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret`}
-              </pre>
             </li>
           </ol>
         </div>

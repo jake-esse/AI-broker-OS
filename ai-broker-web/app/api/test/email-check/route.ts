@@ -17,13 +17,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log('Manual email check triggered by user:', user.email)
+    console.log('=== Manual email check triggered ===')
+    console.log('User:', user.email)
+    console.log('User ID:', user.id)
+    console.log('Timestamp:', new Date().toISOString())
     
     // Process emails from all sources in parallel
+    console.log('Starting email processing...')
     const results = await Promise.allSettled([
-      processImapAccounts(),
-      processOAuthAccounts(),
+      processImapAccounts().catch(err => {
+        console.error('IMAP processing error:', err)
+        throw err
+      }),
+      processOAuthAccounts().catch(err => {
+        console.error('OAuth processing error:', err)
+        throw err
+      }),
     ])
+
+    console.log('Processing results:', results)
 
     const summary = {
       imap: results[0].status === 'fulfilled' ? results[0].value : { error: results[0].reason?.message || 'Failed' },
@@ -40,6 +52,9 @@ export async function GET(request: NextRequest) {
         console.log(`Email processing succeeded for ${index === 0 ? 'IMAP' : 'OAuth'}:`, result.value)
       }
     })
+
+    console.log('=== Email check complete ===')
+    console.log('Summary:', JSON.stringify(summary, null, 2))
 
     return NextResponse.json({
       success: true,

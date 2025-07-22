@@ -202,7 +202,7 @@ export async function processImapAccounts() {
     .from('email_connections')
     .select('*')
     .eq('provider', 'imap')
-    .eq('is_active', true)
+    .eq('status', 'active')
 
   if (error || !connections) {
     console.error('Error fetching IMAP connections:', error)
@@ -214,10 +214,10 @@ export async function processImapAccounts() {
     try {
       const processor = new ImapEmailProcessor({
         email: connection.email,
-        password: decrypt(connection.encrypted_password),
+        password: decrypt(connection.imap_password_encrypted),
         host: connection.imap_host,
         port: connection.imap_port,
-        brokerId: connection.user_id
+        brokerId: connection.broker_id
       })
 
       await processor.connect()

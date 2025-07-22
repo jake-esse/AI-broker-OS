@@ -124,8 +124,13 @@ export class EmailOAuthProcessor {
   
   private async processEmailForLoad(emailData: any, brokerId: string, provider: string) {
     try {
+      console.log(`[OAuth] Processing email from ${emailData.from} for broker ${brokerId}`)
+      console.log(`[OAuth] Subject: ${emailData.subject}`)
+      console.log(`[OAuth] Provider: ${provider}`)
+      
       // Store email in database
-      const { data: email, error: emailError } = await this.supabase
+      const supabase = await this.supabase
+      const { data: email, error: emailError } = await supabase
         .from('emails')
         .insert({
           broker_id: brokerId,
@@ -142,27 +147,46 @@ export class EmailOAuthProcessor {
         .single()
 
       if (emailError) {
-        console.error('Error storing email:', emailError)
+        console.error('[OAuth] Error storing email:', emailError)
         return
       }
 
+      console.log(`[OAuth] Email stored with ID: ${email.id}`)
+
       // Process with intake agent
-      const response = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/intake/process`, {
+      const intakeUrl = `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/intake/process`
+      console.log(`[OAuth] Calling intake API at: ${intakeUrl}`)
+      
+      const intakePayload = {
+        email_id: email.id,
+        broker_id: brokerId,
+        channel: `oauth_${provider}`,
+        content: emailData.content,
+        from: emailData.from,
+        to: emailData.to,
+        subject: emailData.subject,
+        raw_data: emailData,
+      }
+      console.log('[OAuth] Intake payload:', JSON.stringify(intakePayload, null, 2))
+      
+      const response = await fetch(intakeUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email_id: email.id,
-          broker_id: brokerId,
-          channel: `oauth_${provider}`,
-          content: emailData.content,
-          raw_data: emailData,
-        }),
+        body: JSON.stringify(intakePayload),
       })
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[OAuth] Intake API error:', response.status, errorText)
+        return
+      }
+
       const result = await response.json()
+      console.log('[OAuth] Intake result:', result)
       
       // Generate quote if complete
       if (result.action === 'proceed_to_quote') {
+        console.log(`[OAuth] Proceeding to quote generation for load ${result.load_id}`)
         await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/quotes/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -173,7 +197,7 @@ export class EmailOAuthProcessor {
         })
       }
     } catch (error) {
-      console.error('Error processing email for load:', error)
+      console.error('[OAuth] Error processing email for load:', error)
     }
   }
   
