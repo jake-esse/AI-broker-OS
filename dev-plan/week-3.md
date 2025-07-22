@@ -1,6 +1,7 @@
 # Week 3: Web Application Foundation - Chat-First UI
 
-**Status**: TODO
+**Status**: COMPLETED - 2025-07-22
+**IMAP Authentication Added**: 2025-07-23
 
 ## Day 1-2: OAuth Authentication Setup
 

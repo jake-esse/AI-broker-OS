@@ -21,18 +21,18 @@ AI-Broker v1 is an intelligent freight brokerage automation platform, starting w
   - ✅ Quote distribution system
   - [View Details](./week-2.md)
 
-- **Week 3: Web Application Foundation** [IN PROGRESS - started 2025-07-22]
+- **Week 3: Web Application Foundation** [DONE - 2025-07-22]
   - ✅ Next.js setup & dependencies
   - ✅ Chat-first UI design documentation
-  - 🔄 OAuth authentication (in progress)
-  - ❌ Loads table interface
-  - ❌ Chat interface & timeline
+  - ✅ OAuth authentication (Gmail/Outlook)
+  - ✅ Loads table interface
+  - ✅ Chat interface & timeline
   - [View Details](./week-3.md)
 
-- **Week 4: Integration & Launch Prep** [TODO]
-  - Email integration
-  - Testing & quality assurance
-  - Launch preparation
+- **Week 4: Integration & Launch Prep** [DONE - 2025-07-23]
+  - ✅ Email integration (OAuth + IMAP)
+  - ✅ Testing & quality assurance
+  - ✅ Launch preparation
   - [View Details](./week-4.md)
 
 ### Phase 2: Multi-Modal Quoting
