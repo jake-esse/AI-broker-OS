@@ -17,8 +17,9 @@ export class EmailOAuthProcessor {
     return this.supabase
   }
 
-  async processGmailMessages(accessToken: string, brokerId: string) {
+  async processGmailMessages(accessToken: string, brokerId: string, isInitialCheck: boolean = false) {
     console.log('[processGmailMessages] Starting Gmail processing for broker:', brokerId)
+    console.log('[processGmailMessages] Initial check:', isInitialCheck)
     try {
       const oauth2Client = new OAuth2Client(
         process.env.GOOGLE_CLIENT_ID,
@@ -29,41 +30,73 @@ export class EmailOAuthProcessor {
       
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
       
-      console.log('[processGmailMessages] Fetching unread messages...')
-      // Get unread messages - remove category filter for now
+      // Calculate date filter - 1 hour for initial check, 5 minutes for regular checks
+      const minutesBack = isInitialCheck ? 60 : 5
+      const afterDate = new Date(Date.now() - minutesBack * 60 * 1000)
+      const dateFilter = `after:${Math.floor(afterDate.getTime() / 1000)}`
+      
+      console.log(`[processGmailMessages] Fetching all messages from last ${minutesBack} minutes...`)
+      // Get all messages (read and unread) with date filter and limit
       const messagesResponse = await gmail.users.messages.list({
         userId: 'me',
-        q: 'is:unread'
+        q: dateFilter,
+        maxResults: 50 // Limit to 50 messages max
       })
       
       const messages = messagesResponse.data.messages || []
-      console.log(`[processGmailMessages] Found ${messages.length} unread messages`)
+      console.log(`[processGmailMessages] Found ${messages.length} messages from last ${minutesBack} minutes`)
+      
+      let processedCount = 0
+      let quotesFound = 0
       
       for (const message of messages) {
         if (!message.id) continue
         
-        console.log(`[processGmailMessages] Processing message ID: ${message.id}`)
+        console.log(`[processGmailMessages] Processing message ${processedCount + 1}/${messages.length} - ID: ${message.id}`)
+        
+        // Get message details to check if it's already read
+        const messageDetails = await gmail.users.messages.get({
+          userId: 'me',
+          id: message.id,
+          format: 'minimal'
+        })
+        
+        const isUnread = messageDetails.data.labelIds?.includes('UNREAD') || false
+        console.log(`[processGmailMessages] Message ${message.id} is ${isUnread ? 'unread' : 'read'}`)
+        
         const emailData = await this.extractGmailData(gmail, message.id)
         console.log(`[processGmailMessages] Extracted email data:`, {
           from: emailData.from,
           subject: emailData.subject,
-          date: emailData.date
+          date: emailData.date,
+          messageId: emailData.messageId
         })
         
-        await this.processEmailForLoad(emailData, brokerId, 'gmail')
+        // Check if this email has already been processed
+        const supabase = await this.getSupabase()
+        const { data: existingEmail } = await supabase
+          .from('emails')
+          .select('id')
+          .eq('message_id', emailData.messageId)
+          .single()
         
-        // Mark as read
-        console.log(`[processGmailMessages] Marking message ${message.id} as read`)
-        await gmail.users.messages.modify({
-          userId: 'me',
-          id: message.id,
-          requestBody: {
-            removeLabelIds: ['UNREAD']
-          }
-        })
+        if (existingEmail) {
+          console.log(`[processGmailMessages] Email already processed - skipping message ID: ${emailData.messageId}`)
+          processedCount++
+          continue
+        }
+        
+        const result = await this.processEmailForLoad(emailData, brokerId, 'gmail')
+        processedCount++
+        
+        if (result && result.action === 'proceed_to_quote') {
+          quotesFound++
+          console.log(`[processGmailMessages] Quote request found! Total quotes: ${quotesFound}`)
+        }
       }
       
-      console.log('[processGmailMessages] Gmail processing complete')
+      console.log(`[processGmailMessages] Gmail processing complete. Processed: ${processedCount}, Quotes found: ${quotesFound}`)
+      return { processed: processedCount, quotesFound }
     } catch (error: any) {
       console.error('[processGmailMessages] Error processing Gmail messages:', error)
       console.error('[processGmailMessages] Error details:', error.message, error.code)
@@ -77,27 +110,65 @@ export class EmailOAuthProcessor {
     }
   }
   
-  async processMicrosoftMessages(accessToken: string, brokerId: string) {
+  async processMicrosoftMessages(accessToken: string, brokerId: string, isInitialCheck: boolean = false) {
     try {
       const graphClient = Client.init({
         authProvider: (done) => done(null, accessToken)
       })
       
-      // Get unread messages
+      // Calculate date filter - 1 hour for initial check, 5 minutes for regular checks
+      const minutesBack = isInitialCheck ? 60 : 5
+      const afterDate = new Date(Date.now() - minutesBack * 60 * 1000)
+      const dateFilter = afterDate.toISOString()
+      
+      console.log(`[processMicrosoftMessages] Fetching all messages from last ${minutesBack} minutes...`)
+      // Get all messages (read and unread) with date filter
       const messages = await graphClient.api('/me/messages')
-        .filter('isRead eq false')
-        .select('id,subject,from,receivedDateTime,body,hasAttachments')
+        .filter(`receivedDateTime ge ${dateFilter}`)
+        .select('id,subject,from,receivedDateTime,body,hasAttachments,isRead')
         .top(50)
         .get()
       
+      let processedCount = 0
+      let quotesFound = 0
+      
       for (const message of messages.value) {
-        const emailData = await this.extractMicrosoftEmailData(message)
-        await this.processEmailForLoad(emailData, brokerId, 'outlook')
+        console.log(`[processMicrosoftMessages] Processing message ${processedCount + 1}/${messages.value.length}`)
+        console.log(`[processMicrosoftMessages] Message ${message.id} is ${message.isRead ? 'read' : 'unread'}`)
         
-        // Mark as read
-        await graphClient.api(`/me/messages/${message.id}`)
-          .update({ isRead: true })
+        const emailData = await this.extractMicrosoftEmailData(message)
+        console.log(`[processMicrosoftMessages] Extracted email data:`, {
+          from: emailData.from,
+          subject: emailData.subject,
+          date: emailData.date,
+          messageId: emailData.messageId
+        })
+        
+        // Check if this email has already been processed
+        const supabase = await this.getSupabase()
+        const { data: existingEmail } = await supabase
+          .from('emails')
+          .select('id')
+          .eq('message_id', emailData.messageId)
+          .single()
+        
+        if (existingEmail) {
+          console.log(`[processMicrosoftMessages] Email already processed - skipping message ID: ${emailData.messageId}`)
+          processedCount++
+          continue
+        }
+        
+        const result = await this.processEmailForLoad(emailData, brokerId, 'outlook')
+        processedCount++
+        
+        if (result && result.action === 'proceed_to_quote') {
+          quotesFound++
+          console.log(`[processMicrosoftMessages] Quote request found! Total quotes: ${quotesFound}`)
+        }
       }
+      
+      console.log(`[processMicrosoftMessages] Outlook processing complete. Processed: ${processedCount}, Quotes found: ${quotesFound}`)
+      return { processed: processedCount, quotesFound }
     } catch (error) {
       console.error('Error processing Microsoft messages:', error)
       throw error
@@ -179,7 +250,7 @@ export class EmailOAuthProcessor {
 
       if (emailError) {
         console.error('[OAuth] Error storing email:', emailError)
-        return
+        return null
       }
 
       console.log(`[OAuth] Email stored with ID: ${email.id}`)
@@ -209,7 +280,7 @@ export class EmailOAuthProcessor {
       if (!response.ok) {
         const errorText = await response.text()
         console.error('[OAuth] Intake API error:', response.status, errorText)
-        return
+        return null
       }
 
       const result = await response.json()
@@ -227,8 +298,11 @@ export class EmailOAuthProcessor {
           }),
         })
       }
+      
+      return result
     } catch (error) {
       console.error('[OAuth] Error processing email for load:', error)
+      return null
     }
   }
   
@@ -330,6 +404,8 @@ export async function processOAuthAccounts() {
     console.log(`[processOAuthAccounts] Found ${connections.length} OAuth connections`)
 
     let totalProcessed = 0
+    let totalQuotesFound = 0
+    const results = []
 
     // Process each connection
     for (const connection of connections) {
@@ -344,15 +420,31 @@ export async function processOAuthAccounts() {
           const newToken = await refreshAccessToken(connection)
           if (!newToken) {
             console.error(`Failed to refresh token for ${connection.email}`)
+            results.push({ email: connection.email, error: 'Token expired' })
             continue
           }
           connection.oauth_access_token = newToken
         }
         
+        // Check if this is the first time processing (no last_checked timestamp)
+        const isInitialCheck = !connection.last_checked
+        
+        let result
         if (connection.provider === 'gmail') {
-          await processor.processGmailMessages(connection.oauth_access_token, connection.broker_id)
+          result = await processor.processGmailMessages(connection.oauth_access_token, connection.broker_id, isInitialCheck)
         } else if (connection.provider === 'outlook') {
-          await processor.processMicrosoftMessages(connection.oauth_access_token, connection.broker_id)
+          result = await processor.processMicrosoftMessages(connection.oauth_access_token, connection.broker_id, isInitialCheck)
+        }
+
+        if (result) {
+          totalProcessed += result.processed
+          totalQuotesFound += result.quotesFound
+          results.push({ 
+            email: connection.email, 
+            provider: connection.provider,
+            processed: result.processed, 
+            quotesFound: result.quotesFound 
+          })
         }
 
         // Update last checked time
@@ -361,9 +453,9 @@ export async function processOAuthAccounts() {
           .update({ last_checked: new Date().toISOString() })
           .eq('id', connection.id)
 
-        totalProcessed++
       } catch (error: any) {
         console.error(`Error processing OAuth for ${connection.email}:`, error)
+        results.push({ email: connection.email, error: error.message })
         
         // Update connection status if failed
         await supabase
@@ -376,7 +468,12 @@ export async function processOAuthAccounts() {
       }
     }
 
-    return { processed: totalProcessed }
+    return { 
+      processed: totalProcessed, 
+      quotesFound: totalQuotesFound,
+      connections: results.length,
+      details: results
+    }
   } catch (error: any) {
     console.error('[processOAuthAccounts] Unexpected error:', error)
     return { processed: 0, error: error.message }

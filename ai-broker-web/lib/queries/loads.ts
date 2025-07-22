@@ -21,60 +21,32 @@ export function useLoads() {
   return useQuery({
     queryKey: ['loads'],
     queryFn: async () => {
-      // For now, return mock data
-      // TODO: Replace with actual Supabase query
-      const mockLoads: Load[] = [
-        {
-          id: 'load-123',
-          shipper_name: 'ABC Manufacturing',
-          status: 'quoted',
-          created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-          notifications_count: 1,
-          requires_action: true,
-          origin_city: 'Chicago',
-          origin_state: 'IL',
-          dest_city: 'Atlanta',
-          dest_state: 'GA',
-          reference_number: 'REF-001',
-        },
-        {
-          id: 'load-456',
-          shipper_name: 'XYZ Corp',
-          status: 'in_transit',
-          created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-          notifications_count: 0,
-          requires_action: false,
-          origin_city: 'Dallas',
-          origin_state: 'TX',
-          dest_city: 'Miami',
-          dest_state: 'FL',
-          reference_number: 'REF-002',
-        },
-        {
-          id: 'load-789',
-          shipper_name: 'Global Logistics',
-          status: 'new',
-          created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-          notifications_count: 0,
-          requires_action: false,
-          origin_city: 'Los Angeles',
-          origin_state: 'CA',
-          dest_city: 'Seattle',
-          dest_state: 'WA',
-          reference_number: 'REF-003',
-        },
-      ]
-
-      return mockLoads
-
-      // Real implementation would be:
-      // const { data, error } = await supabase
-      //   .from('loads')
-      //   .select('*')
-      //   .order('created_at', { ascending: false })
-      // 
-      // if (error) throw error
-      // return data
+      const { data, error } = await supabase
+        .from('loads')
+        .select('*')
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Error fetching loads:', error)
+        throw error
+      }
+      
+      // Transform the data to match the expected format
+      const transformedLoads: Load[] = (data || []).map(load => ({
+        id: load.id,
+        shipper_name: load.customer_name || load.customer_email || 'Unknown Shipper',
+        status: load.status,
+        created_at: load.created_at,
+        notifications_count: 0, // TODO: Implement notification count
+        requires_action: load.status === 'quoted' || load.status === 'pending_clarification',
+        origin_city: load.pickup_location?.split(',')[0]?.trim(),
+        origin_state: load.pickup_location?.split(',')[1]?.trim(),
+        dest_city: load.delivery_location?.split(',')[0]?.trim(),
+        dest_state: load.delivery_location?.split(',')[1]?.trim(),
+        reference_number: load.reference_number,
+      }))
+      
+      return transformedLoads
     },
   })
 }
@@ -85,33 +57,33 @@ export function useLoad(id: string) {
   return useQuery({
     queryKey: ['load', id],
     queryFn: async () => {
-      // For now, return mock data
-      // TODO: Replace with actual Supabase query
-      const mockLoad: Load = {
-        id,
-        shipper_name: 'ABC Manufacturing',
-        status: 'quoted',
-        created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        notifications_count: 1,
-        requires_action: true,
-        origin_city: 'Chicago',
-        origin_state: 'IL',
-        dest_city: 'Atlanta',
-        dest_state: 'GA',
-        reference_number: 'REF-001',
+      const { data, error } = await supabase
+        .from('loads')
+        .select('*')
+        .eq('id', id)
+        .single()
+      
+      if (error) {
+        console.error('Error fetching load:', error)
+        throw error
       }
-
-      return mockLoad
-
-      // Real implementation would be:
-      // const { data, error } = await supabase
-      //   .from('loads')
-      //   .select('*')
-      //   .eq('id', id)
-      //   .single()
-      // 
-      // if (error) throw error
-      // return data
+      
+      // Transform the data to match the expected format
+      const transformedLoad: Load = {
+        id: data.id,
+        shipper_name: data.customer_name || data.customer_email || 'Unknown Shipper',
+        status: data.status,
+        created_at: data.created_at,
+        notifications_count: 0, // TODO: Implement notification count
+        requires_action: data.status === 'quoted' || data.status === 'pending_clarification',
+        origin_city: data.pickup_location?.split(',')[0]?.trim(),
+        origin_state: data.pickup_location?.split(',')[1]?.trim(),
+        dest_city: data.delivery_location?.split(',')[0]?.trim(),
+        dest_state: data.delivery_location?.split(',')[1]?.trim(),
+        reference_number: data.reference_number,
+      }
+      
+      return transformedLoad
     },
   })
 }
