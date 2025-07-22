@@ -237,86 +237,163 @@ Build an AI-powered platform that acts as an intelligent assistant to independen
 
 ### Overall Design Philosophy
 
-**Web Application as Central Hub:**
-- Next.js web app serves as the broker's command center
-- Real-time visibility into all AI agent activities
-- Unified view of multi-channel communications
+**Chat-First AI Assistant:**
+- Primary interaction through conversational interface with AI
+- AI acts as intelligent freight operations assistant
+- Natural language commands and queries
+- Context-aware responses and proactive suggestions
+
+**Email-Integrated Authentication:**
+- OAuth login via email providers (Gmail, Outlook)
+- Automatic email account connection for load monitoring
+- Seamless integration with existing broker workflows
+- No separate username/password management
+
+**Real-Time Operations Hub:**
 - WebSocket connections for instant updates
-
-**Chat-First Interface:**
-- Natural language interaction with AI
-- Context-aware conversations
-- Persistent chat history
-- Multi-modal inputs (text, documents, images)
-
-**Multi-Channel Communication:**
-- AI agents autonomously communicate via email, SMS, and phone
-- All communications visible in the web interface
-- Broker can override or intervene at any point
-- Unified conversation threads across channels
+- Multi-channel communication visibility (email, SMS, phone)
+- Unified view of all AI agent activities
+- Human-in-the-loop escalation when needed
 
 **Progressive Disclosure:**
-- Simple interface for common tasks
+- Simple, focused interface for primary tasks
 - Advanced features accessible when needed
-- Customizable to user preferences
 - Mobile-responsive design
+- Minimal cognitive load
 
 ### Navigation Structure
 
-**Collapsible Left Sidebar:**
-1. **Dashboard** - Performance metrics and alerts
-2. **Open Loads** - Active load management
-3. **Quotes** - Pending quotes and opportunities
-4. **Carriers** - Network management
-5. **Customers** - Shipper relationships
-6. **Reports** - Analytics and insights
-7. **Settings** - Configuration and preferences
+**Top Navigation Bar:**
+- **Loads** - Returns to main loads table (default view)
+- **Dashboard** - KPI overview and analytics
+- **Settings** - Account and AI configuration
+- **Notifications** - Important alerts with load navigation
 
-### Load Management Interface
+### Primary Interface: Loads Table
 
-**Load List (Left Panel):**
-- Sortable/filterable load list
-- Status indicators and priorities
-- Quick actions menu
-- Search functionality
+**Homepage Layout:**
+- Clean table view of all loads, sorted chronologically
+- Columns: Shipper, Status, Time Received, Notifications
+- Clickable rows navigate to load-specific chat
+- Real-time status updates
+- Search and filter capabilities
 
-**Load Chat (Center Panel):**
-- AI conversation about specific load
-- Document viewer inline
-- Action buttons contextually displayed
-- Communication history
+**Load Status Indicators:**
+- New (unprocessed)
+- Quoted (awaiting response)
+- Booked (carrier assigned)
+- In Transit (active shipment)
+- Delivered (awaiting POD)
+- Complete (fully processed)
+- Action Required (needs human input)
 
-**Load Timeline (Right Panel):**
-- Visual progress indicator
-- Clickable milestone navigation
-- Expected vs. actual timing
-- Required actions highlighted
+### Load Chat Interface
 
-**Key Information Display:**
-- Shipper/carrier contact cards
-- Equipment and commodity details
-- Dates and locations
-- Financial summary
+**Layout Structure:**
+- **Left:** Back button to loads table
+- **Center:** Conversational chat with AI about the load
+- **Right:** Horizontal timeline card with clickable milestones
+
+**Chat Features:**
+- AI provides load status updates and insights
+- Shows all communications (emails, SMS, calls) inline
+- Displays documents (BOL, rate confirmation, invoice) inline
+- Highlights requests for human guidance based on confidence thresholds
+- Natural language command input for broker instructions
+
+**AI Conversation Elements:**
+- Timestamped messages
+- Clear attribution (AI, Broker, Shipper, Carrier)
+- Inline document previews
+- Action buttons for common tasks
+- Confidence indicators on AI decisions
+- "Why?" explanations for AI reasoning
+
+**Timeline Overview (Right Panel):**
+- Visual progress bar with key milestones
+- Clickable milestones jump to relevant chat section
+- Shows planned vs actual timing
+- Highlights current status and next steps
+- Key dates and deadlines
+
+### Dashboard View
+
+**KPI Overview:**
+- Load win rate (quotes → bookings)
+- Loads per day (volume trends)
+- Average margin per load
+- Response time metrics
+- Carrier performance scores
+- Revenue tracking
+
+**Visualizations:**
+- Line charts for trends
+- Bar charts for comparisons
+- Heat maps for lane analysis
+- Performance gauges
+
+### Settings Page
+
+**Account Management:**
+- Email connection status
+- Profile information
+- Billing and subscription
+- Team members (future)
+
+**AI Configuration:**
+- Confidence thresholds by action type
+- Automation preferences
+- Escalation rules
+- Communication templates
+- Preferred carriers and lanes
+
+**Notification Preferences:**
+- Alert types and frequencies
+- Communication channels
+- Quiet hours
+- Priority rules
 
 ### AI Interaction Patterns
 
 **Confidence-Based Escalation:**
-- AI indicates confidence level
-- Explains reasoning for decisions
-- Requests human input when uncertain
-- Learns from broker feedback
+- AI indicates confidence level on each decision
+- Visual confidence indicators (e.g., green/yellow/red)
+- Proactive requests for human guidance when uncertain
+- Clear explanation of what input is needed and why
+- Learning from broker responses to improve over time
 
-**Contextual Assistance:**
-- Proactive suggestions
-- Relevant information surfacing
-- Task prioritization
-- Risk identification
+**Load-Specific Conversations:**
+- Each load has its own persistent chat thread
+- AI maintains full context of load history
+- References previous decisions and communications
+- Surfaces relevant information proactively
+- Suggests next best actions based on load status
 
 **Natural Language Commands:**
-- "Find me van loads from Chicago to Atlanta"
-- "What's the status on load #1234?"
-- "Negotiate with this carrier down to $2,000"
-- "Send pickup confirmation to driver"
+- "Check in with the driver on this load"
+- "Follow up with shipper about the missing BOL"
+- "Find a backup carrier at a lower rate"
+- "Send the invoice to accounting"
+- "What's the profit margin on this load?"
+- "Why did you quote this rate?"
+
+**Proactive AI Communications:**
+- "The driver hasn't checked in for 4 hours. Should I call them?"
+- "This carrier's insurance expires tomorrow. I need to find an alternative."
+- "The shipper usually pays within 30 days. It's been 35. Shall I send a reminder?"
+- "Market rates on this lane have dropped 10%. Should I requote?"
+
+**Context-Aware Responses:**
+- AI understands the current load status and history
+- References specific emails, documents, and prior conversations
+- Maintains awareness of broker preferences and patterns
+- Adapts communication style to urgency and importance
+
+**Human Guidance Requests:**
+- "I'm not confident about this carrier's safety rating (65%). Do you want to proceed?"
+- "The shipper is asking for a 20% discount. This would put us below margin. Your call?"
+- "I couldn't extract the delivery date from this email. What date should I use?"
+- "This is a new lane for us. I suggest $2,500 but need your approval."
 
 ## Non-Functional Requirements
 
