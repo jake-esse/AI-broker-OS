@@ -1,42 +1,67 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   useEffect(() => {
     const handleCallback = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession()
+      console.log('Starting callback...')
       
-      if (error) {
-        console.error('Auth error:', error)
-        router.push('/auth/login')
-        return
-      }
-
-      if (session) {
-        // Store email connection details
-        await fetch('/api/auth/connect-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: session.user.app_metadata.provider,
-            access_token: session.provider_token,
-            refresh_token: session.provider_refresh_token,
-          }),
-        })
-
-        router.push('/')
+      // Get the code from URL params
+      const code = searchParams.get('code')
+      console.log('Auth code:', code)
+      
+      if (code) {
+        try {
+          // Exchange the code for a session
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+          console.log('Exchange result:', data, 'Error:', error)
+          
+          if (error) {
+            console.error('Exchange error:', error)
+            router.push('/auth/login')
+            return
+          }
+          
+          if (data?.session) {
+            console.log('Session established, redirecting to home...')
+            // Small delay to ensure session is saved
+            setTimeout(() => {
+              router.push('/')
+            }, 100)
+          } else {
+            console.log('No session after exchange')
+            router.push('/auth/login')
+          }
+        } catch (err) {
+          console.error('Callback error:', err)
+          router.push('/auth/login')
+        }
+      } else {
+        // No code in URL, check if user is already logged in
+        const { data: { session }, error } = await supabase.auth.getSession()
+        console.log('Checking existing session:', session, 'Error:', error)
+        
+        if (session) {
+          console.log('Already logged in, redirecting to home...')
+          // Don't try to exchange code again
+          router.push('/')
+        } else {
+          console.log('No code and no session, redirecting to login...')
+          router.push('/auth/login')
+        }
       }
     }
 
     handleCallback()
-  }, [router, supabase])
+  }, [router, supabase, searchParams])
 
   return (
     <div className="flex min-h-screen items-center justify-center">

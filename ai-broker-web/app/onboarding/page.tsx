@@ -266,8 +266,28 @@ function EmailSetupStep({ onNext }: { onNext: () => void }) {
 
   const sendTestEmail = async () => {
     trackUserAction('onboarding_test_email_sent')
-    // In real implementation, this would send a test email
-    setTestEmailSent(true)
+    
+    try {
+      const response = await fetch('/api/emails/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: 'AI-Broker Test Email',
+          html: '<p>This is a test email from AI-Broker. Your email connection is working!</p>',
+        }),
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        setTestEmailSent(true)
+      } else {
+        alert('Failed to send test email: ' + (result.error || 'Unknown error'))
+      }
+    } catch (error) {
+      console.error('Test email error:', error)
+      alert('Error sending test email')
+    }
   }
 
   return (
