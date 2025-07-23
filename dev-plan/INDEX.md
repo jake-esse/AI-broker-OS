@@ -62,10 +62,10 @@ AI-Broker v1 is an intelligent freight brokerage automation platform, starting w
   - LoadBlast campaign engine
   - [View Details](./week-10-11.md)
 
-- **Week 12-13: CRM & Automated Outreach** [TODO]
-  - CRM & calendar integration
-  - Capacity monitoring & optimization
-  - Automated shipper discovery & outreach
+- **Week 12-13: Dispatch & Documentation** [TODO]
+  - Automated dispatch system
+  - Document generation
+  - Real-time tracking
   - [View Details](./week-12-13.md)
 
 - **Week 14-15: Tracking & Visibility** [TODO]
@@ -99,6 +99,13 @@ AI-Broker v1 is an intelligent freight brokerage automation platform, starting w
   - Final deployment
   - [View Details](./week-23-24.md)
 
+### Phase 5: Growth Automation (Capstone)
+- **Week 25-26: CRM & Automated Outreach** [TODO]
+  - CRM & calendar integration
+  - Capacity monitoring & optimization
+  - Automated shipper discovery & outreach
+  - [View Details](./week-25-26.md)
+
 ## Quick Links
 - [Architecture Overview](./architecture.md)
 - [Future Roadmap](./roadmap.md)
@@ -115,9 +122,9 @@ The recommended approach is to expand freight types (Option 1) before building e
 
 ## Current Status
 - **Current Phase**: Phase 1 (MVP)
-- **Current Week**: Week 3
-- **Overall Progress**: 8% Complete (2 of 24 weeks)
-- **Next Milestone**: Web application foundation and quote interface
+- **Current Week**: Week 4 (Completed)
+- **Overall Progress**: 15% Complete (4 of 26 weeks)
+- **Next Milestone**: Multi-modal quoting expansion
 
 ## Notes
 - All dates are target dates and may be adjusted based on development progress
