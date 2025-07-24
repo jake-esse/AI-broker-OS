@@ -157,8 +157,9 @@ See DEV_PLAN.md for detailed current status and next steps.
 
 AI-Broker is a Next.js web application with AI agents that communicate through multiple channels:
 
-- **Frontend**: Next.js web app (broker command center)
-- **Backend**: Supabase (PostgreSQL + Auth + Realtime)
+- **Frontend**: Next.js 15 web app with App Router (broker command center)
+- **Backend**: PostgreSQL with pgvector + Prisma ORM
+- **Authentication**: JWT-based with OAuth 2.0 (Google & Microsoft)
 - **AI Orchestration**: LangChain/LangGraph agents
 - **Communication**: Resend (email), Postmark (inbound), Twilio (SMS/voice)
 - **Payments**: Stripe (billing and carrier payments)
