@@ -125,7 +125,7 @@ export class EmailOAuthProcessor {
       // Get all messages (read and unread) with date filter
       const messages = await graphClient.api('/me/messages')
         .filter(`receivedDateTime ge ${dateFilter}`)
-        .select('id,subject,from,receivedDateTime,body,hasAttachments,isRead')
+        .select('id,subject,from,toRecipients,receivedDateTime,body,hasAttachments,isRead')
         .top(50)
         .get()
       
@@ -213,9 +213,14 @@ export class EmailOAuthProcessor {
       // This would require an additional API call
     }
     
+    // Extract to recipients
+    const toAddresses = message.toRecipients?.map((recipient: any) => 
+      recipient.emailAddress?.address
+    ).filter(Boolean).join(', ') || ''
+    
     return {
       from: message.from?.emailAddress?.address || '',
-      to: '', // Would need to fetch this separately
+      to: toAddresses,
       subject: message.subject || '',
       content: message.body?.content || '',
       messageId: message.id,

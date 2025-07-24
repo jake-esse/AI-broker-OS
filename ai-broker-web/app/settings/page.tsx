@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { getCurrentUserClient } from '@/lib/auth/client'
 import { Mail, Plus, Trash2, CheckCircle, XCircle, AlertCircle, RefreshCw, Save } from 'lucide-react'
 
 interface EmailConnection {
@@ -10,8 +10,8 @@ interface EmailConnection {
   email: string
   provider: string
   status: string
-  last_checked: string
-  error_message?: string
+  lastChecked: string
+  errorMessage?: string
 }
 
 export default function SettingsPage() {
@@ -25,7 +25,6 @@ export default function SettingsPage() {
   })
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
 
   // Check for success/error messages from OAuth callbacks
   useEffect(() => {
@@ -36,10 +35,18 @@ export default function SettingsPage() {
       alert('Gmail account connected successfully!')
     } else if (success === 'microsoft_connected') {
       alert('Outlook account connected successfully!')
+    } else if (success) {
+      // Handle generic success messages from OAuth callbacks
+      const message = decodeURIComponent(success)
+      alert(message)
     } else if (error === 'oauth_failed') {
       alert('OAuth authentication failed. Please try again.')
     } else if (error === 'connection_failed') {
       alert('Failed to save email connection. Please try again.')
+    } else if (error) {
+      // Handle generic error messages from OAuth callbacks
+      const message = decodeURIComponent(error)
+      alert(`Error: ${message}`)
     }
 
     // Clear URL params
@@ -55,17 +62,26 @@ export default function SettingsPage() {
   const loadConnections = async () => {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const user = await getCurrentUserClient()
+      console.log('Current user:', user)
+      if (!user) {
+        console.error('No user found')
+        router.push('/auth/login')
+        return
+      }
 
-      const { data, error } = await supabase
-        .from('email_connections')
-        .select('*')
-        .eq('broker_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setConnections(data || [])
+      // Fetch email connections from API
+      const response = await fetch('/api/email-connections')
+      const data = await response.json()
+      
+      if (!response.ok) {
+        console.error('Failed to fetch email connections:', data)
+        throw new Error(data.error || 'Failed to fetch email connections')
+      }
+      
+      console.log('Email connections:', data)
+      
+      setConnections(data.connections || [])
     } catch (error) {
       console.error('Error loading connections:', error)
     } finally {
@@ -74,19 +90,22 @@ export default function SettingsPage() {
   }
 
   const connectEmail = (provider: 'google' | 'microsoft') => {
-    window.location.href = `/api/auth/email/${provider}`
+    // Use new connect endpoint for additional email accounts
+    window.location.href = `/api/auth/connect/${provider}`
   }
 
   const deleteConnection = async (id: string) => {
     if (!confirm('Are you sure you want to remove this email connection?')) return
 
     try {
-      const { error } = await supabase
-        .from('email_connections')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
+      const response = await fetch(`/api/email-connections/${id}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete connection')
+      }
+      
       await loadConnections()
     } catch (error) {
       console.error('Error deleting connection:', error)
@@ -197,14 +216,14 @@ export default function SettingsPage() {
                       <div className="font-medium">{connection.email}</div>
                       <div className="text-sm text-gray-500">
                         {getProviderName(connection.provider)} • Last checked: {
-                          connection.last_checked 
-                            ? new Date(connection.last_checked).toLocaleString()
+                          connection.lastChecked 
+                            ? new Date(connection.lastChecked).toLocaleString()
                             : 'Never'
                         }
                       </div>
-                      {connection.error_message && (
+                      {connection.errorMessage && (
                         <div className="text-sm text-red-600 mt-1">
-                          {connection.error_message}
+                          {connection.errorMessage}
                         </div>
                       )}
                     </div>
@@ -212,7 +231,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2">
                     {connection.status === 'reconnect_required' ? (
                       <button
-                        onClick={() => connectOAuth(connection.provider as 'gmail' | 'outlook')}
+                        onClick={() => connectEmail(connection.provider as 'google' | 'microsoft')}
                         className="rounded-lg bg-orange-600 px-3 py-1 text-sm text-white hover:bg-orange-700"
                       >
                         Reconnect
@@ -329,12 +348,6 @@ export default function SettingsPage() {
             To enable email monitoring:
           </p>
           <ol className="list-decimal list-inside space-y-2 text-sm text-yellow-700">
-            <li>
-              <strong className="text-red-700">IMPORTANT:</strong> Run the loads table migration in Supabase SQL Editor:
-              <pre className="mt-2 bg-yellow-100 p-2 rounded text-xs overflow-x-auto">
-{`-- Copy contents of /supabase/migrations/create_loads_tables.sql`}
-              </pre>
-            </li>
             <li>
               <strong>For Gmail:</strong> OAuth is already configured ✓
             </li>

@@ -1,0 +1,409 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, uuid_ossp(map: "uuid-ossp"), vector]
+}
+
+model User {
+  lastProvider String?   @map("last_provider")
+  lastLogin    DateTime? @map("last_login")
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  name         String?
+  provider     String?
+  email        String
+
+  @@index([email], map: "users_email_key")
+  @@index([email], map: "idx_users_email")
+  @@map("users")
+}
+
+model Broker {
+  updatedAt        DateTime @default(now()) @map("updated_at")
+  email            String
+  preferences      Json     @default("{}")
+  createdAt        DateTime @default(now()) @map("created_at")
+  oauthTokens      Json     @default("{}") @map("oauth_tokens")
+  apiKeys          Json     @default("{}") @map("api_keys")
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyName      String   @map("company_name")
+  userId           String?  @map("user_id") @db.Uuid
+  subscriptionTier String   @default("trial") @map("subscription_tier")
+
+  @@index([email], map: "brokers_email_key")
+  @@index([email], map: "idx_brokers_email")
+  @@index([userId], map: "idx_brokers_user_id")
+  @@map("brokers")
+}
+
+model EmailConnection {
+  oauthRefreshToken     String?   @map("oauth_refresh_token")
+  provider              String
+  updatedAt             DateTime  @default(now()) @map("updated_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  errorMessage          String?   @map("error_message")
+  brokerId              String    @map("broker_id") @db.Uuid
+  imapPasswordEncrypted String?   @map("imap_password_encrypted")
+  oauthTokenExpiresAt   DateTime? @map("oauth_token_expires_at")
+  status                String    @default("active")
+  imapHost              String?   @map("imap_host")
+  imapUseSsl            Boolean   @default(true) @map("imap_use_ssl")
+  isPrimary             Boolean   @default(false) @map("is_primary")
+  userId                String?   @map("user_id") @db.Uuid
+  oauthAccessToken      String?   @map("oauth_access_token")
+  lastChecked           DateTime? @map("last_checked")
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                 String
+  imapPort              Int?      @map("imap_port")
+  imapUsername          String?   @map("imap_username")
+
+  @@unique([userId, provider, email])
+  @@index([brokerId, email, provider], map: "email_connections_broker_email_provider_unique")
+  @@index([brokerId], map: "idx_email_connections_broker_id")
+  @@index([status], map: "idx_email_connections_status")
+  @@index([userId], map: "idx_email_connections_user_id")
+  @@map("email_connections")
+}
+
+model Load {
+  brokerReviewedAt     DateTime? @map("broker_reviewed_at")
+  brokerReviewNotes    String?   @map("broker_review_notes")
+  weightLb             Int       @map("weight_lb")
+  shipperName          String?   @map("shipper_name") @db.VarChar(255)
+  equipment            String    @db.VarChar(50)
+  complexityOverrides  String[]  @default([]) @map("complexity_overrides")
+  pickupDt             DateTime  @map("pickup_dt")
+  shipperEmail         String?   @map("shipper_email") @db.VarChar(255)
+  destZip              String    @map("dest_zip") @db.VarChar(10)
+  shipperPhone         String?   @map("shipper_phone") @db.VarChar(20)
+  commodity            String?   @db.VarChar(255)
+  originZip            String    @map("origin_zip") @db.VarChar(10)
+  sourceEmailId        String?   @map("source_email_id") @db.VarChar(255)
+  status               String    @default("NEW_RFQ") @db.VarChar(20)
+  reviewedBy           String?   @map("reviewed_by") @db.VarChar(255)
+  riskScore            Int       @default(1) @map("risk_score")
+  loadNumber           String?   @unique @map("load_number") @db.VarChar(50)
+  sourceType           String    @default("EMAIL") @map("source_type") @db.VarChar(20)
+  sourceEmailAccountId String?   @map("source_email_account_id") @db.Uuid
+  rawEmailText         String?   @map("raw_email_text")
+  updatedAt            DateTime  @default(now()) @map("updated_at")
+  extractionConfidence Decimal?  @map("extraction_confidence") @db.Decimal(3, 2)
+  brokerId             String?   @map("broker_id") @db.Uuid
+  missingFields        String[]  @default([]) @map("missing_fields")
+  aiNotes              String?   @map("ai_notes")
+  marginTarget         Decimal?  @map("margin_target") @db.Decimal(10, 2)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  priorityLevel        Int       @default(5) @map("priority_level")
+  createdBy            String    @default("intake_agent") @map("created_by") @db.VarChar(255)
+  modifiedBy           String?   @map("modified_by") @db.VarChar(255)
+  postToCarriers       Boolean   @default(true) @map("post_to_carriers")
+  postToDat            Boolean   @default(false) @map("post_to_dat")
+  postingDelayMinutes  Int       @default(0) @map("posting_delay_minutes")
+  maxCarriersToContact Int       @default(10) @map("max_carriers_to_contact")
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  preferredRatePerMile Decimal?  @map("preferred_rate_per_mile") @db.Decimal(10, 2)
+  complexityFlags      String[]  @default([]) @map("complexity_flags")
+  requiresHumanReview  Boolean   @default(false) @map("requires_human_review")
+  reviewReason         String?   @map("review_reason")
+  complexityAnalysis   String?   @map("complexity_analysis")
+  brokerReviewStatus   String?   @map("broker_review_status") @db.VarChar(20)
+  assignedSpecialist   String?   @map("assigned_specialist") @db.VarChar(255)
+  hazmat               Boolean   @default(false)
+  totalMiles           Int?      @map("total_miles")
+  ratePerMile          Decimal?  @map("rate_per_mile") @db.Decimal(10, 2)
+
+  @@index([complexityFlags])
+  @@index([assignedSpecialist], map: "idx_loads_assigned_specialist")
+  @@index([brokerId], map: "idx_loads_broker_id")
+  @@index([requiresHumanReview, riskScore(sort: Desc), createdAt(sort: Desc)], map: "idx_loads_complexity_review")
+  @@index([createdAt], map: "idx_loads_created_at")
+  @@index([originZip, destZip], map: "idx_loads_origin_dest")
+  @@index([pickupDt], map: "idx_loads_pickup_dt")
+  @@index([brokerReviewStatus, brokerReviewedAt], map: "idx_loads_review_status")
+  @@index([riskScore(sort: Desc), createdAt], map: "idx_loads_risk_score")
+  @@index([sourceEmailAccountId], map: "idx_loads_source_email_account")
+  @@index([status], map: "idx_loads_status")
+  @@map("loads")
+}
+
+model Carrier {
+  updatedAt          DateTime  @default(now()) @map("updated_at")
+  lastContactDate    DateTime? @map("last_contact_date")
+  serviceAreas       String[]  @default([]) @map("service_areas")
+  creditRating       String?   @map("credit_rating") @db.VarChar(10)
+  createdBy          String    @default("broker_ui") @map("created_by") @db.VarChar(255)
+  loadsCompleted     Int       @default(0) @map("loads_completed")
+  insuranceExpiry    DateTime? @map("insurance_expiry") @db.Date
+  contactPhone       String?   @map("contact_phone") @db.VarChar(20)
+  preferenceTier     Int       @default(3) @map("preference_tier")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  contactEmail       String    @unique @map("contact_email") @db.VarChar(255)
+  notes              String?
+  averageRatePerMile Decimal?  @map("average_rate_per_mile") @db.Decimal(10, 2)
+  modifiedBy         String?   @map("modified_by") @db.VarChar(255)
+  loadsAccepted      Int       @default(0) @map("loads_accepted")
+  smsEnabled         Boolean   @default(false) @map("sms_enabled")
+  contactName        String?   @map("contact_name") @db.VarChar(255)
+  dotNumber          String?   @map("dot_number") @db.VarChar(20)
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  carrierName        String    @map("carrier_name") @db.VarChar(255)
+  isPreferred        Boolean   @default(false) @map("is_preferred")
+  equipmentTypes     String[]  @default([]) @map("equipment_types")
+  status             String    @default("ACTIVE") @db.VarChar(20)
+  mcNumber           String?   @map("mc_number") @db.VarChar(20)
+  phoneNumber        String?   @map("phone_number") @db.VarChar(20)
+  emailEnabled       Boolean   @default(true) @map("email_enabled")
+  loadsOffered       Int       @default(0) @map("loads_offered")
+
+  @@index([equipmentTypes])
+  @@index([serviceAreas])
+  @@index([contactEmail], map: "idx_carriers_email")
+  @@index([isPreferred, preferenceTier], map: "idx_carriers_preferred")
+  @@index([status], map: "idx_carriers_status")
+  @@index([contactEmail], map: "unique_carrier_email")
+  @@map("carriers")
+}
+
+model Quote {
+  responseMethod String?   @map("response_method")
+  sentAt         DateTime  @default(now()) @map("sent_at")
+  ratePerMile    Decimal?  @map("rate_per_mile") @db.Decimal(10, 2)
+  updatedAt      DateTime  @default(now()) @map("updated_at")
+  rate           Decimal?  @db.Decimal(10, 2)
+  status         String    @default("pending")
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  respondedAt    DateTime? @map("responded_at")
+  carrierMc      String?   @map("carrier_mc")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  loadId         String?   @map("load_id") @db.Uuid
+  carrierId      String?   @map("carrier_id") @db.Uuid
+  carrierName    String?   @map("carrier_name")
+  validUntil     DateTime? @map("valid_until")
+  carrierEmail   String?   @map("carrier_email")
+  notes          String?
+  carrierPhone   String?   @map("carrier_phone")
+
+  @@index([carrierId], map: "idx_quotes_carrier_id")
+  @@index([loadId], map: "idx_quotes_load_id")
+  @@index([status], map: "idx_quotes_status")
+  @@map("quotes")
+}
+
+model ChatMessage {
+  createdAt DateTime @default(now()) @map("created_at")
+  role      String
+  loadId    String   @map("load_id") @db.Uuid
+  content   String
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brokerId  String   @map("broker_id") @db.Uuid
+  metadata  Json?
+
+  @@index([brokerId], map: "idx_chat_messages_broker_id")
+  @@index([createdAt], map: "idx_chat_messages_created_at")
+  @@index([loadId], map: "idx_chat_messages_load_id")
+  @@map("chat_messages")
+}
+
+model Communication {
+  threadId        String?  @map("thread_id")
+  aiGenerated     Boolean  @default(false) @map("ai_generated")
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  loadId          String?  @map("load_id") @db.Uuid
+  updatedAt       DateTime @default(now()) @map("updated_at")
+  brokerId        String?  @map("broker_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  status          String   @default("sent")
+  oauthProvider   String?  @map("oauth_provider")
+  parentMessageId String?  @map("parent_message_id") @db.Uuid
+  inReplyTo       String?  @map("in_reply_to")
+  channel         String?
+  direction       String?
+  messageId       String?  @map("message_id")
+  extractedData   Json?    @map("extracted_data")
+  fromAddress     String?  @map("from_address")
+  toAddress       String?  @map("to_address")
+  ccAddresses     String[] @map("cc_addresses")
+  aiConfidence    Decimal? @map("ai_confidence") @db.Decimal(3, 2)
+  subject         String?
+  content         String?
+  attachments     Json     @default("[]")
+
+  @@index([brokerId], map: "idx_communications_broker_id")
+  @@index([loadId], map: "idx_communications_load_id")
+  @@index([threadId], map: "idx_communications_thread_id")
+  @@map("communications")
+}
+
+model EmailAccount {
+  imapPassword          String?   @map("imap_password")
+  oauthScope            String?   @map("oauth_scope")
+  imapUseTls            Boolean   @default(true) @map("imap_use_tls")
+  imapPort              Int?      @map("imap_port")
+  tokenExpiresAt        DateTime? @map("token_expires_at")
+  webhookSubscriptionId String?   @map("webhook_subscription_id")
+  updatedAt             DateTime  @default(now()) @map("updated_at")
+  emailAddress          String    @map("email_address")
+  lastSyncAt            DateTime? @map("last_sync_at")
+  webhookSecret         String?   @map("webhook_secret")
+  lastError             String?   @map("last_error")
+  webhookExpiresAt      DateTime? @map("webhook_expires_at")
+  imapHost              String?   @map("imap_host")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  errorCount            Int       @default(0) @map("error_count")
+  tenantId              String?   @map("tenant_id")
+  monitorFolders        String[]  @default(["INBOX"]) @map("monitor_folders")
+  brokerId              String    @map("broker_id") @db.Uuid
+  processingEnabled     Boolean   @default(true) @map("processing_enabled")
+  autoReplyEnabled      Boolean   @default(true) @map("auto_reply_enabled")
+  accessToken           String?   @map("access_token")
+  senderWhitelist       String[]  @map("sender_whitelist")
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdBy             String    @default("system") @map("created_by")
+  refreshToken          String?   @map("refresh_token")
+  senderBlacklist       String[]  @map("sender_blacklist")
+  clientId              String?   @map("client_id")
+  subjectFilters        String[]  @map("subject_filters")
+  displayName           String?   @map("display_name")
+  imapUsername          String?   @map("imap_username")
+  provider              String
+  status                String    @default("AUTHORIZATION_REQUIRED")
+
+  @@unique([brokerId, emailAddress])
+  @@index([status])
+  @@index([provider])
+  @@index([brokerId], map: "idx_email_accounts_broker_id")
+  @@index([lastSyncAt], map: "idx_email_accounts_last_sync")
+  @@index([tokenExpiresAt], map: "idx_email_accounts_token_expires")
+  @@map("email_accounts")
+}
+
+model EmailProcessingLog {
+  subject              String?
+  emailBodyText        String?   @map("email_body_text")
+  complexityFlags      String[]  @map("complexity_flags")
+  threadId             String?   @map("thread_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  processingStatus     String    @map("processing_status")
+  rawEmailHeaders      Json?     @map("raw_email_headers")
+  emailAccountId       String?   @map("email_account_id") @db.Uuid
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  retryCount           Int       @default(0) @map("retry_count")
+  emailBodyHtml        String?   @map("email_body_html")
+  attachmentsInfo      Json?     @map("attachments_info")
+  errorDetails         Json?     @map("error_details")
+  receivedAt           DateTime? @map("received_at")
+  messageId            String    @map("message_id")
+  extractionConfidence Decimal?  @map("extraction_confidence") @db.Decimal(3, 2)
+  senderEmail          String?   @map("sender_email")
+  brokerId             String    @map("broker_id") @db.Uuid
+  intentClassification String?   @map("intent_classification")
+  loadId               String?   @map("load_id") @db.Uuid
+  loadNumber           String?   @map("load_number")
+  errorMessage         String?   @map("error_message")
+  processedAt          DateTime  @default(now()) @map("processed_at")
+
+  @@unique([emailAccountId, messageId])
+  @@index([emailAccountId], map: "idx_email_processing_log_account_id")
+  @@index([brokerId], map: "idx_email_processing_log_broker_id")
+  @@index([processedAt], map: "idx_email_processing_log_processed_at")
+  @@index([senderEmail], map: "idx_email_processing_log_sender")
+  @@index([processingStatus], map: "idx_email_processing_log_status")
+  @@map("email_processing_log")
+}
+
+model Email {
+  messageId   String   @map("message_id")
+  rawData     Json?    @map("raw_data")
+  content     String?
+  processedAt DateTime @default(now()) @map("processed_at")
+  subject     String?
+  provider    String?
+  fromAddress String   @map("from_address")
+  status      String   @default("received")
+  receivedAt  DateTime @map("received_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brokerId    String   @map("broker_id") @db.Uuid
+  toAddress   String   @map("to_address")
+
+  @@index([brokerId], map: "idx_emails_broker_id")
+  @@index([messageId], map: "idx_emails_message_id")
+  @@index([receivedAt], map: "idx_emails_received_at")
+  @@index([status], map: "idx_emails_status")
+  @@map("emails")
+}
+
+model LoadBlast {
+  loadId             String?   @map("load_id") @db.Uuid
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at")
+  carrierId          String?   @map("carrier_id") @db.Uuid
+  blastType          String    @map("blast_type") @db.VarChar(20)
+  blastStatus        String    @default("PENDING") @map("blast_status") @db.VarChar(20)
+  subjectLine        String?   @map("subject_line")
+  messageContent     String?   @map("message_content")
+  sentAt             DateTime? @map("sent_at")
+  deliveredAt        DateTime? @map("delivered_at")
+  openedAt           DateTime? @map("opened_at")
+  clickedAt          DateTime? @map("clicked_at")
+  responseReceivedAt DateTime? @map("response_received_at")
+  responseType       String?   @map("response_type") @db.VarChar(20)
+  responseContent    String?   @map("response_content")
+  resendMessageId    String?   @map("resend_message_id") @db.VarChar(255)
+  twilioMessageId    String?   @map("twilio_message_id") @db.VarChar(255)
+  datPostingId       String?   @map("dat_posting_id") @db.VarChar(255)
+  errorMessage       String?   @map("error_message")
+  retryCount         Int       @default(0) @map("retry_count")
+  createdBy          String    @default("loadblast_agent") @map("created_by") @db.VarChar(255)
+
+  @@index([carrierId], map: "idx_load_blasts_carrier_id")
+  @@index([loadId], map: "idx_load_blasts_load_id")
+  @@index([sentAt], map: "idx_load_blasts_sent_at")
+  @@index([blastStatus], map: "idx_load_blasts_status")
+  @@map("load_blasts")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type      String
+  title     String
+  read      Boolean  @default(false)
+  metadata  Json?
+  brokerId  String   @map("broker_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  message   String
+
+  @@index([brokerId], map: "idx_notifications_broker_id")
+  @@index([createdAt], map: "idx_notifications_created_at")
+  @@index([read], map: "idx_notifications_read")
+  @@map("notifications")
+}
+
+model OAuthState {
+  createdAt DateTime @default(now()) @map("created_at")
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  state     String   @unique
+  provider  String
+
+  @@index([expiresAt], map: "idx_oauth_states_expires_at")
+  @@index([state], map: "idx_oauth_states_state")
+  @@index([userId], map: "idx_oauth_states_user_id")
+  @@map("oauth_states")
+}
+
+model UserSettings {
+  updatedAt            DateTime @default(now()) @map("updated_at")
+  confidenceThresholds Json     @default("{\"auto_quote\": 85, \"auto_dispatch\": 90, \"auto_carrier_select\": 75}") @map("confidence_thresholds")
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notifications        Json     @default("{\"load_updates\": true, \"daily_summary\": false, \"action_required\": true}")
+  createdAt            DateTime @default(now()) @map("created_at")
+  userId               String   @unique @map("user_id") @db.Uuid
+
+  @@map("user_settings")
+}

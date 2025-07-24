@@ -1,69 +1,55 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  const token = request.cookies.get('auth-token')
+  const pathname = request.nextUrl.pathname
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  // If user is not logged in and trying to access protected route
-  if (!user && !request.nextUrl.pathname.startsWith('/auth')) {
+  // Public routes that don't require authentication
+  const publicRoutes = [
+    '/auth/login',
+    '/api/auth/direct',
+    '/api/auth/callback',
+  ]
+  
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
+  
+  // If no token and trying to access protected route
+  if (!token && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
-
-  // If user is logged in
-  if (user) {
-    // Check if onboarding is complete
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('onboarding_completed')
-      .eq('id', user.id)
-      .single()
-
-    // If user hasn't completed onboarding and not already on onboarding page
-    if (!profile?.onboarding_completed && !request.nextUrl.pathname.startsWith('/onboarding')) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/onboarding'
-      return NextResponse.redirect(url)
+  
+  // If has token, verify it's not expired (basic check)
+  if (token) {
+    try {
+      // For now, just check if token exists
+      // In production, you'd verify the JWT properly
+      const hasValidToken = token.value && token.value.length > 0
+      
+      if (!hasValidToken) {
+        // Invalid token, clear it and redirect to login
+        const response = NextResponse.redirect(new URL('/auth/login', request.url))
+        response.cookies.delete('auth-token')
+        return response
+      }
+    } catch (error) {
+      // Error verifying token
+      const response = NextResponse.redirect(new URL('/auth/login', request.url))
+      response.cookies.delete('auth-token')
+      return response
     }
-
+    
     // If user is trying to access auth pages while logged in
-    if (request.nextUrl.pathname.startsWith('/auth')) {
+    if (pathname.startsWith('/auth/login')) {
       const url = request.nextUrl.clone()
       url.pathname = '/'
       return NextResponse.redirect(url)
     }
   }
 
-  return supabaseResponse
+  return NextResponse.next()
 }
 
 export const config = {
@@ -74,8 +60,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public (public files)
-     * - api (API routes)
+     * - api routes we want to exclude
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

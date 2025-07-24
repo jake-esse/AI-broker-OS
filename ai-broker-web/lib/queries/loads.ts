@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
 
 interface Load {
   id: string
@@ -13,77 +12,45 @@ interface Load {
   dest_city?: string
   dest_state?: string
   reference_number?: string
+  equipment?: string
+  weight?: number
+  pickup_date?: string
+  commodity?: string
+  rate_per_mile?: number
 }
 
 export function useLoads() {
-  const supabase = createClient()
-
   return useQuery({
     queryKey: ['loads'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('loads')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      if (error) {
-        console.error('Error fetching loads:', error)
-        throw error
+      const response = await fetch('/api/loads')
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = '/auth/login'
+          return []
+        }
+        throw new Error('Failed to fetch loads')
       }
-      
-      // Transform the data to match the expected format
-      const transformedLoads: Load[] = (data || []).map(load => ({
-        id: load.id,
-        shipper_name: load.customer_name || load.customer_email || 'Unknown Shipper',
-        status: load.status,
-        created_at: load.created_at,
-        notifications_count: 0, // TODO: Implement notification count
-        requires_action: load.status === 'quoted' || load.status === 'pending_clarification',
-        origin_city: load.pickup_location?.split(',')[0]?.trim(),
-        origin_state: load.pickup_location?.split(',')[1]?.trim(),
-        dest_city: load.delivery_location?.split(',')[0]?.trim(),
-        dest_state: load.delivery_location?.split(',')[1]?.trim(),
-        reference_number: load.reference_number,
-      }))
-      
-      return transformedLoads
+      const data = await response.json()
+      return data.loads as Load[]
     },
   })
 }
 
 export function useLoad(id: string) {
-  const supabase = createClient()
-
   return useQuery({
     queryKey: ['load', id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('loads')
-        .select('*')
-        .eq('id', id)
-        .single()
-      
-      if (error) {
-        console.error('Error fetching load:', error)
-        throw error
+      const response = await fetch(`/api/loads/${id}`)
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = '/auth/login'
+          return null
+        }
+        throw new Error('Failed to fetch load')
       }
-      
-      // Transform the data to match the expected format
-      const transformedLoad: Load = {
-        id: data.id,
-        shipper_name: data.customer_name || data.customer_email || 'Unknown Shipper',
-        status: data.status,
-        created_at: data.created_at,
-        notifications_count: 0, // TODO: Implement notification count
-        requires_action: data.status === 'quoted' || data.status === 'pending_clarification',
-        origin_city: data.pickup_location?.split(',')[0]?.trim(),
-        origin_state: data.pickup_location?.split(',')[1]?.trim(),
-        dest_city: data.delivery_location?.split(',')[0]?.trim(),
-        dest_state: data.delivery_location?.split(',')[1]?.trim(),
-        reference_number: data.reference_number,
-      }
-      
-      return transformedLoad
+      const data = await response.json()
+      return data.load as Load
     },
   })
 }
@@ -92,7 +59,7 @@ export function useLoadTimeline(loadId: string) {
   return useQuery({
     queryKey: ['load-timeline', loadId],
     queryFn: async () => {
-      // Mock timeline data
+      // Mock timeline data for now
       return [
         {
           id: '1',

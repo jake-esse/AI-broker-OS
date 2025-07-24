@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { google } from 'googleapis'
 import { GOOGLE_OAUTH_CONFIG } from '@/lib/oauth/config'
+import { createOrUpdateUser, setSession } from '@/lib/auth/direct-auth-prisma'
+import prisma from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -8,93 +10,123 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const supabase = await createClient()
-
-  // Handle OAuth errors
   if (error) {
-    console.error('Google OAuth error:', error)
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_URL}/settings?error=oauth_failed`)
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent(error)}`
+    )
   }
 
-  if (!code || !state) {
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_URL}/settings?error=invalid_request`)
+  if (!code) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent('Missing code')}`
+    )
   }
 
   try {
-    // Verify state to prevent CSRF
-    const { data: stateData } = await supabase
-      .from('oauth_states')
-      .select('*')
-      .eq('state', state)
-      .single()
-
-    if (!stateData || new Date(stateData.expires_at) < new Date()) {
-      throw new Error('Invalid or expired state')
-    }
-
     // Exchange code for tokens
-    const tokenResponse = await fetch(GOOGLE_OAUTH_CONFIG.tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code,
-        client_id: GOOGLE_OAUTH_CONFIG.clientId,
-        client_secret: GOOGLE_OAUTH_CONFIG.clientSecret,
-        redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUri,
-        grant_type: 'authorization_code',
-      }),
-    })
+    const oauth2Client = new google.auth.OAuth2(
+      GOOGLE_OAUTH_CONFIG.clientId,
+      GOOGLE_OAUTH_CONFIG.clientSecret,
+      GOOGLE_OAUTH_CONFIG.redirectUri
+    )
 
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text()
-      console.error('Token exchange failed:', error)
-      throw new Error('Failed to exchange code for tokens')
+    const { tokens } = await oauth2Client.getToken(code)
+    oauth2Client.setCredentials(tokens)
+
+    // Get user info
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
+    const { data: profile } = await oauth2.userinfo.get()
+
+    if (!profile.email) {
+      throw new Error('No email found in Google profile')
     }
 
-    const tokens = await tokenResponse.json()
-
-    // Get user email from token
-    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    // Create or update user
+    const user = await createOrUpdateUser({
+      email: profile.email,
+      name: profile.name || undefined,
+      provider: 'google'
     })
 
-    if (!userInfoResponse.ok) {
-      throw new Error('Failed to get user info')
-    }
+    // Set session
+    await setSession(user.id)
 
-    const userInfo = await userInfoResponse.json()
+    // Get broker record or create if it doesn't exist
+    let broker = await prisma.broker.findFirst({
+      where: { userId: user.id }
+    })
 
-    // Store or update email connection
-    const { error: upsertError } = await supabase
-      .from('email_connections')
-      .upsert({
-        broker_id: stateData.user_id,
-        email: userInfo.email,
-        provider: 'gmail',
-        status: 'active',
-        oauth_access_token: tokens.access_token,
-        oauth_refresh_token: tokens.refresh_token,
-        oauth_token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-        last_checked: new Date().toISOString(),
-      }, {
-        onConflict: 'broker_id,email,provider',
+    if (!broker) {
+      // Create broker record if it doesn't exist
+      broker = await prisma.broker.create({
+        data: {
+          userId: user.id,
+          email: profile.email,
+          companyName: profile.name || profile.email.split('@')[0],
+          subscriptionTier: 'trial'
+        }
       })
-
-    if (upsertError) {
-      console.error('Failed to store email connection:', upsertError)
-      throw new Error('Failed to save email connection')
     }
 
-    // Clean up state
-    await supabase
-      .from('oauth_states')
-      .delete()
-      .eq('state', state)
+    // Store email connection with OAuth tokens
+    await prisma.emailConnection.upsert({
+      where: {
+        userId_provider_email: {
+          userId: user.id,
+          provider: 'gmail',
+          email: profile.email
+        }
+      },
+      update: {
+        oauthAccessToken: tokens.access_token || '',
+        oauthRefreshToken: tokens.refresh_token || '',
+        oauthTokenExpiresAt: tokens.expiry_date 
+          ? new Date(tokens.expiry_date)
+          : new Date(Date.now() + 3600 * 1000),
+        status: 'active',
+        lastChecked: new Date(),
+        errorMessage: null
+      },
+      create: {
+        userId: user.id,
+        brokerId: broker.id,
+        provider: 'gmail',
+        email: profile.email,
+        oauthAccessToken: tokens.access_token || '',
+        oauthRefreshToken: tokens.refresh_token || '',
+        oauthTokenExpiresAt: tokens.expiry_date 
+          ? new Date(tokens.expiry_date)
+          : new Date(Date.now() + 3600 * 1000),
+        status: 'active',
+        isPrimary: true, // First connection is primary
+        lastChecked: new Date()
+      }
+    })
 
-    // Redirect to settings with success message
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_URL}/settings?success=google_connected`)
-  } catch (error: any) {
-    console.error('Google OAuth callback error:', error)
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_URL}/settings?error=connection_failed`)
+    // Trigger initial email check
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_URL}/api/emails/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          broker_id: broker.id,
+          is_initial: true
+        })
+      })
+    } catch (error) {
+      console.error('Failed to trigger initial email check:', error)
+    }
+
+    // Redirect to dashboard
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_URL}/`)
+  } catch (error) {
+    console.error('Google OAuth error:', error)
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent('Authentication failed')}`
+    )
   }
 }

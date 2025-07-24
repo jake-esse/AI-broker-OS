@@ -6,8 +6,7 @@ import { cn } from '@/lib/utils/cn'
 import { NotificationBell } from './NotificationBell'
 import { Package, BarChart3, Settings, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { User } from '@supabase/supabase-js'
+import { getCurrentUserClient, signOut } from '@/lib/auth/client'
 
 const navigation = [
   { name: 'Loads', href: '/', icon: Package },
@@ -15,29 +14,26 @@ const navigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
+interface User {
+  id: string
+  email: string
+  name?: string | null
+}
+
 export function TopNav() {
   const pathname = usePathname()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      const currentUser = await getCurrentUserClient()
+      setUser(currentUser)
       setLoading(false)
     }
 
     getUser()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null)
-    })
-
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
-  }, [supabase])
+  }, [])
 
   if (pathname.startsWith('/auth')) {
     return null
@@ -80,10 +76,7 @@ export function TopNav() {
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">{user.email}</span>
                 <button
-                  onClick={async () => {
-                    await supabase.auth.signOut()
-                    window.location.href = '/auth/login'
-                  }}
+                  onClick={signOut}
                   className="text-sm text-gray-500 hover:text-gray-700"
                 >
                   Sign out

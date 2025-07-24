@@ -1,0 +1,16 @@
+<\!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Auth Cookies</title>
+</head>
+<body>
+    <h1>Clear Auth Cookies</h1>
+    <p>Open this file in your browser at http://localhost:3000 to clear cookies</p>
+    <script>
+        // Clear auth-token cookie
+        document.cookie = "auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        alert("Auth cookies cleared\! You can now close this window and refresh the app.");
+    </script>
+</body>
+</html>
+EOF < /dev/null
