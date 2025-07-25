@@ -1,7 +1,12 @@
+/**
+ * TODO: This test file needs to be updated to use IntakeAgentLLM
+ * instead of the deprecated regex-based IntakeAgent
+ */
+
 import { POST } from '@/app/api/intake/process/route'
 import { NextRequest } from 'next/server'
 
-// Mock IntakeAgent
+// Mock IntakeAgent - DEPRECATED: Should mock IntakeAgentLLM instead
 jest.mock('@/lib/agents/intake', () => ({
   IntakeAgent: jest.fn().mockImplementation(() => ({
     process_quote_request: jest.fn().mockResolvedValue({

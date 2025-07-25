@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import * as db from '@/lib/database/operations'
 import { MICROSOFT_OAUTH_CONFIG } from '@/lib/oauth/config'
+import * as db from '@/lib/database/operations'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams

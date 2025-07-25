@@ -9,9 +9,10 @@ import { useEffect, useState } from 'react'
 import { getCurrentUserClient, signOut } from '@/lib/auth/client'
 
 const navigation = [
-  { name: 'Loads', href: '/', icon: Package },
+  { name: 'Loads', href: '/loads', icon: Package },
   { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
+  // { name: 'Debug Email', href: '/debug-email', icon: Settings },  // Uncomment for debugging
 ]
 
 interface User {

@@ -106,7 +106,7 @@ export async function createOrUpdateUser({
     }
     
     // Try to find existing user
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.user.findFirst({
       where: { email }
     })
     

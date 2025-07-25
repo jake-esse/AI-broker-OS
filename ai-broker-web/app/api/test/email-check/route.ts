@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
+import * as db from '@/lib/database/operations'
 import { processImapAccounts } from '@/lib/email/imap-processor'
 import { processOAuthAccounts } from '@/lib/email/oauth-processor'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
-  
   // Check if user is authenticated
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   
-  if (userError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

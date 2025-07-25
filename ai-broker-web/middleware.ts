@@ -7,9 +7,11 @@ export async function middleware(request: NextRequest) {
 
   // Public routes that don't require authentication
   const publicRoutes = [
-    '/auth/login',
+    '/',
+    '/login',
     '/api/auth/direct',
     '/api/auth/callback',
+    '/api/auth/signout',
   ]
   
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
@@ -17,7 +19,7 @@ export async function middleware(request: NextRequest) {
   // If no token and trying to access protected route
   if (!token && !isPublicRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
+    url.pathname = '/login'
     return NextResponse.redirect(url)
   }
   
@@ -30,21 +32,21 @@ export async function middleware(request: NextRequest) {
       
       if (!hasValidToken) {
         // Invalid token, clear it and redirect to login
-        const response = NextResponse.redirect(new URL('/auth/login', request.url))
+        const response = NextResponse.redirect(new URL('/login', request.url))
         response.cookies.delete('auth-token')
         return response
       }
     } catch (error) {
       // Error verifying token
-      const response = NextResponse.redirect(new URL('/auth/login', request.url))
+      const response = NextResponse.redirect(new URL('/login', request.url))
       response.cookies.delete('auth-token')
       return response
     }
     
-    // If user is trying to access auth pages while logged in
-    if (pathname.startsWith('/auth/login')) {
+    // If user is trying to access login page while logged in
+    if (pathname === '/login' && hasValidToken) {
       const url = request.nextUrl.clone()
-      url.pathname = '/'
+      url.pathname = '/dashboard'
       return NextResponse.redirect(url)
     }
   }

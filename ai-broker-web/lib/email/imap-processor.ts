@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
+import * as db from '@/lib/database/operations'
 const Imap = require('imap')
 const { simpleParser } = require('mailparser')
 

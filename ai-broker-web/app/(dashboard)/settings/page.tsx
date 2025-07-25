@@ -66,7 +66,7 @@ export default function SettingsPage() {
       console.log('Current user:', user)
       if (!user) {
         console.error('No user found')
-        router.push('/auth/login')
+        router.push('/')
         return
       }
 

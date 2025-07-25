@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { IntakeAgent } from '@/lib/agents/intake'
+import * as db from '@/lib/database/operations'
+// import { IntakeAgent } from '@/lib/agents/intake'  // DEPRECATED: Using LLM-based intake only
+import { IntakeAgentLLM } from '@/lib/agents/intake-llm'
+import prisma from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
 
   try {
     const body = await request.json()
@@ -11,8 +12,8 @@ export async function POST(request: NextRequest) {
 
     console.log('[Intake API] Processing request:', { email_id, broker_id, from, subject })
 
-    // Initialize intake agent
-    const intakeAgent = new IntakeAgent()
+    // Initialize intake agent - use LLM-based agent
+    const intakeAgent = new IntakeAgentLLM()
 
     // Process the email content
     const result = await intakeAgent.processEmail({
@@ -25,13 +26,13 @@ export async function POST(request: NextRequest) {
 
     // Update email status
     if (email_id) {
-      await supabase
-        .from('emails')
-        .update({ 
+      await prisma.email.update({
+        where: { id: email_id },
+        data: { 
           status: 'processed',
-          processed_at: new Date().toISOString()
-        })
-        .eq('id', email_id)
+          processedAt: new Date()
+        }
+      })
     }
 
     console.log('[Intake API] Result:', result)

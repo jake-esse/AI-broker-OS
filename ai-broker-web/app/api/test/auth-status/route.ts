@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth/direct-auth'
-import { createClient } from '@/lib/supabase/server'
+import * as db from '@/lib/database/operations'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
+import * as db from '@/lib/database/operations'
 import { cookies } from 'next/headers'
 
 export async function GET() {

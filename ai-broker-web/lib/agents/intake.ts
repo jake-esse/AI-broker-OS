@@ -1,4 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
+/**
+ * DEPRECATED: This regex-based intake agent has been replaced by IntakeAgentLLM
+ * which uses OpenAI for more accurate and flexible email parsing.
+ * 
+ * This file is kept for reference purposes only.
+ * Use lib/agents/intake-llm.ts instead.
+ */
+
+import prisma from '@/lib/prisma'
 
 export interface IntakeProcessResult {
   action: 'proceed_to_quote' | 'request_clarification' | 'ignore'
@@ -17,17 +25,8 @@ export interface IntakeProcessResult {
 }
 
 export class IntakeAgent {
-  private supabase: any
-
   constructor() {
-    // Supabase will be initialized when needed
-  }
-
-  private async getSupabase() {
-    if (!this.supabase) {
-      this.supabase = await createClient()
-    }
-    return this.supabase
+    // No initialization needed for Prisma
   }
 
   async processEmail(emailData: {
@@ -89,14 +88,28 @@ export class IntakeAgent {
 
   private extractLoadData(content: string, subject: string): any {
     const data: any = {}
-    const fullText = `${subject}\n${content}`.toLowerCase()
+    const originalText = `${subject}\n${content}`
+    const fullText = originalText.toLowerCase()
+
+    // Helper function to extract original case text
+    const extractOriginalCase = (match: RegExpMatchArray | null, fullTextLower: string, originalText: string): string | null => {
+      if (!match) return null
+      const startIndex = fullTextLower.indexOf(match[0])
+      if (startIndex === -1) return match[1].trim()
+      const actualMatch = originalText.substring(startIndex, startIndex + match[0].length)
+      const colonIndex = actualMatch.indexOf(':')
+      if (colonIndex !== -1) {
+        return actualMatch.substring(colonIndex + 1).trim()
+      }
+      return match[1].trim()
+    }
 
     // Extract pickup location
     const pickupMatch = fullText.match(/pickup[:\s]+([^,\n]+)/i) || 
                        fullText.match(/from[:\s]+([^,\n]+)/i) ||
                        fullText.match(/origin[:\s]+([^,\n]+)/i)
     if (pickupMatch) {
-      data.pickup_location = pickupMatch[1].trim()
+      data.pickup_location = extractOriginalCase(pickupMatch, fullText, originalText)
     }
 
     // Extract delivery location
@@ -104,7 +117,7 @@ export class IntakeAgent {
                          fullText.match(/to[:\s]+([^,\n]+)/i) ||
                          fullText.match(/destination[:\s]+([^,\n]+)/i)
     if (deliveryMatch) {
-      data.delivery_location = deliveryMatch[1].trim()
+      data.delivery_location = extractOriginalCase(deliveryMatch, fullText, originalText)
     }
 
     // Extract weight
@@ -118,7 +131,7 @@ export class IntakeAgent {
                           fullText.match(/freight[:\s]+([^,\n]+)/i) ||
                           fullText.match(/cargo[:\s]+([^,\n]+)/i)
     if (commodityMatch) {
-      data.commodity = commodityMatch[1].trim()
+      data.commodity = extractOriginalCase(commodityMatch, fullText, originalText)
     }
 
     // Extract pickup date
@@ -126,14 +139,14 @@ export class IntakeAgent {
                      fullText.match(/pick\s*up[:\s]+([^,\n]+)/i) ||
                      fullText.match(/date[:\s]+([^,\n]+)/i)
     if (dateMatch) {
-      data.pickup_date = dateMatch[1].trim()
+      data.pickup_date = extractOriginalCase(dateMatch, fullText, originalText)
     }
 
     // Extract special requirements
     const specialMatch = fullText.match(/special\s*requirements?[:\s]+([^,\n]+)/i) ||
                         fullText.match(/notes?[:\s]+([^,\n]+)/i)
     if (specialMatch) {
-      data.special_requirements = specialMatch[1].trim()
+      data.special_requirements = extractOriginalCase(specialMatch, fullText, originalText)
     }
 
     return data
@@ -163,8 +176,6 @@ export class IntakeAgent {
   }
 
   private async createLoad(extractedData: any, emailData: any): Promise<string> {
-    const supabase = await this.getSupabase()
-    
     console.log('Creating load with data:', {
       broker_id: emailData.brokerId,
       customer_email: emailData.from,
@@ -175,46 +186,88 @@ export class IntakeAgent {
       pickup_date: extractedData.pickup_date
     })
     
-    // Create the load record - temporarily remove confidence_score
-    const { data: load, error } = await supabase
-      .from('loads')
-      .insert({
-        broker_id: emailData.brokerId,
-        customer_email: emailData.from,
+    try {
+      // Parse pickup and delivery locations to extract zips
+      const originZip = this.extractZipCode(extractedData.pickup_location) || '00000'
+      const destZip = this.extractZipCode(extractedData.delivery_location) || '00000'
+      
+      console.log('Extracted zip codes:', {
         pickup_location: extractedData.pickup_location,
         delivery_location: extractedData.delivery_location,
-        weight: extractedData.weight,
-        commodity: extractedData.commodity || 'General Freight',
-        pickup_date: extractedData.pickup_date || 'ASAP',
-        special_requirements: extractedData.special_requirements,
-        status: 'quoted',
-        source: 'email',
-        original_request: `Subject: ${emailData.subject}\n\n${emailData.content}`
+        originZip,
+        destZip
       })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error creating load:', error)
-      throw new Error(`Failed to create load: ${error.message}`)
-    }
-
-    console.log('Created load:', load.id)
-
-    // Create initial chat message
-    await supabase
-      .from('chat_messages')
-      .insert({
-        load_id: load.id,
-        broker_id: emailData.brokerId,
-        role: 'assistant',
-        content: `I've received your quote request for a shipment from ${extractedData.pickup_location} to ${extractedData.delivery_location}. I'm preparing a quote for you now.`,
-        metadata: {
-          action: 'load_created',
-          extracted_data: extractedData
+      
+      // Parse pickup date
+      let pickupDate = new Date()
+      if (extractedData.pickup_date) {
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        
+        const dateStr = extractedData.pickup_date.toLowerCase()
+        if (dateStr.includes('tomorrow')) {
+          pickupDate = tomorrow
+        } else if (dateStr.includes('today')) {
+          pickupDate = new Date()
+        } else if (dateStr.includes('asap')) {
+          pickupDate = new Date()
+        } else {
+          // Try to parse the date
+          const parsed = new Date(extractedData.pickup_date)
+          if (!isNaN(parsed.getTime())) {
+            pickupDate = parsed
+          }
+        }
+      }
+      
+      // Create the load record
+      const load = await prisma.load.create({
+        data: {
+          brokerId: emailData.brokerId,
+          shipperEmail: emailData.from,
+          originZip: originZip,
+          destZip: destZip,
+          weightLb: extractedData.weight || 0,
+          commodity: extractedData.commodity || 'General Freight',
+          pickupDt: pickupDate,
+          status: 'NEW_RFQ',
+          sourceType: 'EMAIL',
+          equipment: 'DRY_VAN', // Default equipment type
+          rawEmailText: `Subject: ${emailData.subject}\n\n${emailData.content}`,
+          extractionConfidence: 0.95,
+          aiNotes: `Extracted from email: ${emailData.from}`,
+          priorityLevel: 5,
+          createdBy: 'intake_agent'
         }
       })
 
-    return load.id
+      console.log('Created load:', load.id)
+
+      // Create initial chat message
+      await prisma.chatMessage.create({
+        data: {
+          loadId: load.id,
+          brokerId: emailData.brokerId,
+          role: 'assistant',
+          content: `I've received your quote request for a shipment from ${extractedData.pickup_location} to ${extractedData.delivery_location}. I'm preparing a quote for you now.`,
+          metadata: {
+            action: 'load_created',
+            extracted_data: extractedData
+          }
+        }
+      })
+
+      return load.id
+    } catch (error: any) {
+      console.error('Error creating load:', error)
+      throw new Error(`Failed to create load: ${error.message}`)
+    }
+  }
+
+  private extractZipCode(location: string): string | null {
+    if (!location) return null
+    // Extract 5-digit zip code from location string
+    const zipMatch = location.match(/\b\d{5}\b/)
+    return zipMatch ? zipMatch[0] : null
   }
 }

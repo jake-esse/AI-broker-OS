@@ -26,7 +26,7 @@ export function useLoads() {
       const response = await fetch('/api/loads')
       if (!response.ok) {
         if (response.status === 401) {
-          window.location.href = '/auth/login'
+          window.location.href = '/'
           return []
         }
         throw new Error('Failed to fetch loads')
@@ -44,7 +44,7 @@ export function useLoad(id: string) {
       const response = await fetch(`/api/loads/${id}`)
       if (!response.ok) {
         if (response.status === 401) {
-          window.location.href = '/auth/login'
+          window.location.href = '/'
           return null
         }
         throw new Error('Failed to fetch load')

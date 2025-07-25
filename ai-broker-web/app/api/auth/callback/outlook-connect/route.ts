@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { exchangeCodeForToken } from '@/lib/oauth/microsoft'
-import { getCurrentUser } from '@/lib/auth/direct-auth'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
 import { cookies } from 'next/headers'
+import { getBrokerByUserId, createEmailConnection } from '@/lib/database/operations'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -78,12 +78,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get broker record
-    const supabase = await createClient()
-    const { data: broker } = await supabase
-      .from('brokers')
-      .select('id')
-      .eq('user_id', currentUser.id)
-      .single()
+    const broker = await getBrokerByUserId(currentUser.id)
 
     if (!broker) {
       throw new Error('Broker record not found')
@@ -91,33 +86,22 @@ export async function GET(request: NextRequest) {
 
     // Store additional email connection
     const connectionData = {
-      user_id: currentUser.id,
-      broker_id: broker.id,
-      provider: 'outlook',
+      userId: currentUser.id,
+      brokerId: broker.id,
+      provider: 'oauth_outlook',
       email: emailAddress,
-      oauth_access_token: tokens.access_token,
-      oauth_refresh_token: tokens.refresh_token,
-      oauth_token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+      oauthAccessToken: tokens.access_token,
+      oauthRefreshToken: tokens.refresh_token,
+      oauthTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
       status: 'active',
-      is_primary: false, // Additional connections are not primary
-      last_checked: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      isPrimary: false, // Additional connections are not primary
     }
     
     console.log('Saving email connection:', connectionData)
     
-    const { data: savedConnection, error: saveError } = await supabase
-      .from('email_connections')
-      .upsert(connectionData, {
-        onConflict: 'user_id,provider,email'
-      })
-      .select()
+    const savedConnection = await createEmailConnection(connectionData)
       
-    console.log('Save result:', { savedConnection, saveError })
-    
-    if (saveError) {
-      throw saveError
-    }
+    console.log('Save result:', savedConnection)
 
     // Clear state cookie
     cookieStore.delete('oauth-state-connect-microsoft')

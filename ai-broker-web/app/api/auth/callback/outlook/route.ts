@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   if (error) {
     console.error('OAuth error:', error, errorDescription)
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent(
+      `${process.env.NEXT_PUBLIC_URL}/login?error=${encodeURIComponent(
         errorDescription || error || 'OAuth authorization failed'
       )}`
     )
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent(
+      `${process.env.NEXT_PUBLIC_URL}/login?error=${encodeURIComponent(
         'Missing authorization code'
       )}`
     )
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Microsoft OAuth error:', error)
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent('Authentication failed')}`
+      `${process.env.NEXT_PUBLIC_URL}/login?error=${encodeURIComponent('Authentication failed')}`
     )
   }
 }

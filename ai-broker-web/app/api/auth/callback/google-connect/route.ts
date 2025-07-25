@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { google } from 'googleapis'
 import { GOOGLE_OAUTH_CONFIG } from '@/lib/oauth/config'
-import { getCurrentUser } from '@/lib/auth/direct-auth'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
 import { cookies } from 'next/headers'
+import { getBrokerByUserId, createEmailConnection } from '@/lib/database/operations'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -60,37 +60,26 @@ export async function GET(request: NextRequest) {
     }
 
     // Get broker record
-    const supabase = await createClient()
-    const { data: broker } = await supabase
-      .from('brokers')
-      .select('id')
-      .eq('user_id', currentUser.id)
-      .single()
+    const broker = await getBrokerByUserId(currentUser.id)
 
     if (!broker) {
       throw new Error('Broker record not found')
     }
 
     // Store additional email connection
-    await supabase
-      .from('email_connections')
-      .upsert({
-        user_id: currentUser.id,
-        broker_id: broker.id,
-        provider: 'gmail',
-        email: profile.email,
-        oauth_access_token: tokens.access_token || '',
-        oauth_refresh_token: tokens.refresh_token || '',
-        oauth_token_expires_at: tokens.expiry_date 
-          ? new Date(tokens.expiry_date).toISOString()
-          : new Date(Date.now() + 3600 * 1000).toISOString(),
-        status: 'active',
-        is_primary: false, // Additional connections are not primary
-        last_checked: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id,provider,email'
-      })
+    await createEmailConnection({
+      userId: currentUser.id,
+      brokerId: broker.id,
+      provider: 'oauth_google',
+      email: profile.email,
+      oauthAccessToken: tokens.access_token || '',
+      oauthRefreshToken: tokens.refresh_token || '',
+      oauthTokenExpiresAt: tokens.expiry_date 
+        ? new Date(tokens.expiry_date)
+        : new Date(Date.now() + 3600 * 1000),
+      status: 'active',
+      isPrimary: false, // Additional connections are not primary
+    })
 
     // Clear state cookie
     cookieStore.delete('oauth-state-connect-google')

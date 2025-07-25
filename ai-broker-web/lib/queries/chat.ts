@@ -1,5 +1,4 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
 
 interface ChatMessage {
   id: string
@@ -79,8 +78,6 @@ export function useChatMessages(loadId: string) {
 }
 
 export function useSendMessage() {
-  const supabase = createClient()
-
   return useMutation({
     mutationFn: async ({ loadId, message }: { loadId: string; message: string }) => {
       // Mock implementation - just log for now

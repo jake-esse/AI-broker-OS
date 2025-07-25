@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateOAuthUrl } from '@/lib/oauth/config'
-import { getCurrentUser } from '@/lib/auth/direct-auth'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
 import { cookies } from 'next/headers'
 
 export async function GET(

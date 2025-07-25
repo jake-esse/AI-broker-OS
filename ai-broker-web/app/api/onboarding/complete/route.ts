@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
+import * as db from '@/lib/database/operations'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()

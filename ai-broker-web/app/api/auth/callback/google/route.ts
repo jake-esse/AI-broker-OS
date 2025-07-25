@@ -12,13 +12,13 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent(error)}`
+      `${process.env.NEXT_PUBLIC_URL}/login?error=${encodeURIComponent(error)}`
     )
   }
 
   if (!code) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent('Missing code')}`
+      `${process.env.NEXT_PUBLIC_URL}/login?error=${encodeURIComponent('Missing code')}`
     )
   }
 
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined
     })
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_URL}/auth/login?error=${encodeURIComponent('Authentication failed')}`
+      `${process.env.NEXT_PUBLIC_URL}/login?error=${encodeURIComponent('Authentication failed')}`
     )
   }
 }

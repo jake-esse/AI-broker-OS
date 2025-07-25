@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
+import * as db from '@/lib/database/operations'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
 import { Resend } from 'resend'
+import * as db from '@/lib/database/operations'
 
 const resend = new Resend(process.env.RESEND_API_KEY || '')
 

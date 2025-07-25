@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
+import * as db from '@/lib/database/operations'
+import { getCurrentUser } from '@/lib/auth/direct-auth-prisma'
 import { cookies } from 'next/headers'
+import * as db from '@/lib/database/operations'
 import crypto from 'crypto'
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-char-encryption-key-here'

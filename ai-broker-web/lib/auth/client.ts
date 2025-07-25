@@ -15,7 +15,7 @@ export async function getCurrentUserClient() {
 export async function signOut() {
   try {
     await fetch('/api/auth/signout', { method: 'POST' })
-    window.location.href = '/auth/login'
+    window.location.href = '/'
   } catch (error) {
     console.error('Failed to sign out:', error)
   }

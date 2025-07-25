@@ -31,11 +31,11 @@ export async function GET() {
       status: load.status,
       created_at: load.createdAt.toISOString(),
       notifications_count: 0,
-      requires_action: load.status === 'QUOTED' || load.status === 'PENDING_CLARIFICATION',
-      origin_city: load.originZip,
-      origin_state: '', // We only have zip codes in the schema
-      dest_city: load.destZip,
-      dest_state: '',
+      requires_action: load.requiresHumanReview || load.status === 'NEW_RFQ' || false,
+      origin_city: extractCity(load.originZip),
+      origin_state: extractState(load.originZip),
+      dest_city: extractCity(load.destZip),
+      dest_state: extractState(load.destZip),
       reference_number: load.loadNumber,
       // Additional fields from schema
       equipment: load.equipment,
@@ -50,4 +50,26 @@ export async function GET() {
     console.error('Error fetching loads:', error)
     return NextResponse.json({ error: 'Failed to fetch loads' }, { status: 500 })
   }
+}
+
+// Helper functions to extract city/state from zip
+// In a real app, you'd use a zip code database
+function extractCity(zip: string): string {
+  const zipMap: { [key: string]: string } = {
+    '60601': 'Chicago',
+    '10001': 'New York',
+    '00000': 'Unknown',
+    // Add more as needed
+  }
+  return zipMap[zip] || zip
+}
+
+function extractState(zip: string): string {
+  const stateMap: { [key: string]: string } = {
+    '60601': 'IL',
+    '10001': 'NY',
+    '00000': 'XX',
+    // Add more as needed
+  }
+  return stateMap[zip] || 'XX'
 }

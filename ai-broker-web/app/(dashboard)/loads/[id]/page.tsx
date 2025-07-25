@@ -26,7 +26,7 @@ export default function LoadChatPage() {
         <div className="text-center">
           <p className="text-gray-500">Load not found</p>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/loads')}
             className="mt-4 text-blue-600 hover:text-blue-700"
           >
             Return to loads
@@ -42,7 +42,7 @@ export default function LoadChatPage() {
       <div className="flex flex-1 flex-col">
         <div className="mb-4">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/loads')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="h-4 w-4" />
