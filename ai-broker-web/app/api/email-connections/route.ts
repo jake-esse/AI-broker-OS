@@ -26,7 +26,9 @@ export async function GET() {
       provider: conn.provider,
       status: conn.status,
       lastChecked: conn.lastChecked?.toISOString() || null,
-      errorMessage: conn.errorMessage
+      errorMessage: conn.errorMessage,
+      hasTokens: conn.provider.startsWith('oauth') ? !!conn.oauthAccessToken : true,
+      tokenExpiresAt: conn.oauthTokenExpiresAt?.toISOString() || null
     }))
 
     return NextResponse.json({ connections: transformedConnections })

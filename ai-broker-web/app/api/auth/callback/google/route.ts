@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       where: {
         userId_provider_email: {
           userId: user.id,
-          provider: 'gmail',
+          provider: 'oauth_google',
           email: profile.email
         }
       },
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       create: {
         userId: user.id,
         brokerId: broker.id,
-        provider: 'gmail',
+        provider: 'oauth_google',
         email: profile.email,
         oauthAccessToken: tokens.access_token || '',
         oauthRefreshToken: tokens.refresh_token || '',
@@ -117,8 +117,8 @@ export async function GET(request: NextRequest) {
       console.error('Failed to trigger initial email check:', error)
     }
 
-    // Redirect to dashboard
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_URL}/`)
+    // Redirect to loads page
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_URL}/loads`)
   } catch (error) {
     console.error('Google OAuth error:', error)
     console.error('Error details:', {

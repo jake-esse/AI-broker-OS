@@ -1,29 +1,27 @@
 import { formatDistanceToNow } from 'date-fns'
-import { Bot, User, Mail, Phone, FileText, AlertCircle } from 'lucide-react'
+import { Bot, User, Mail, Phone, FileText, AlertCircle, Wrench } from 'lucide-react'
 import { ConfidenceIndicator } from './ConfidenceIndicator'
 import { DocumentViewer } from './DocumentViewer'
 import { cn } from '@/lib/utils/cn'
 
 interface ChatMessage {
   id: string
-  sender_type: 'ai' | 'broker' | 'shipper' | 'carrier' | 'system'
-  message: string
-  confidence_score?: number
-  requires_response?: boolean
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  createdAt: string
   metadata?: any
-  created_at: string
+  confidence?: number
+  toolCalls?: any[]
+  suggestedActions?: any[]
 }
 
 export function ChatMessage({ message }: { message: ChatMessage }) {
   const getIcon = () => {
-    switch (message.sender_type) {
-      case 'ai':
+    switch (message.role) {
+      case 'assistant':
         return <Bot className="h-5 w-5 text-blue-600" />
-      case 'broker':
+      case 'user':
         return <User className="h-5 w-5 text-gray-600" />
-      case 'shipper':
-      case 'carrier':
-        return <Mail className="h-5 w-5 text-gray-400" />
       case 'system':
         return <AlertCircle className="h-5 w-5 text-gray-400" />
       default:
@@ -32,15 +30,11 @@ export function ChatMessage({ message }: { message: ChatMessage }) {
   }
 
   const getSenderName = () => {
-    switch (message.sender_type) {
-      case 'ai':
+    switch (message.role) {
+      case 'assistant':
         return 'AI Assistant'
-      case 'broker':
+      case 'user':
         return 'You'
-      case 'shipper':
-        return message.metadata?.sender_name || 'Shipper'
-      case 'carrier':
-        return message.metadata?.sender_name || 'Carrier'
       case 'system':
         return 'System'
       default:
@@ -48,7 +42,8 @@ export function ChatMessage({ message }: { message: ChatMessage }) {
     }
   }
 
-  const isUserMessage = message.sender_type === 'broker'
+  const isUserMessage = message.role === 'user'
+  const requiresResponse = message.confidence !== undefined && message.confidence < 0.85
 
   return (
     <div className={cn('flex gap-3', isUserMessage && 'flex-row-reverse')}>
@@ -58,10 +53,10 @@ export function ChatMessage({ message }: { message: ChatMessage }) {
         <div className={cn('mb-1 flex items-center gap-2 text-sm', isUserMessage && 'flex-row-reverse')}>
           <span className="font-medium text-gray-900">{getSenderName()}</span>
           <span className="text-gray-500">
-            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+            {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
           </span>
-          {message.confidence_score !== undefined && (
-            <ConfidenceIndicator score={message.confidence_score} />
+          {message.confidence !== undefined && (
+            <ConfidenceIndicator score={message.confidence} />
           )}
         </div>
         
@@ -71,27 +66,45 @@ export function ChatMessage({ message }: { message: ChatMessage }) {
             ? 'bg-blue-600 text-white' 
             : 'bg-gray-100 text-gray-900'
         )}>
-          <p className="whitespace-pre-wrap">{message.message}</p>
+          <p className="whitespace-pre-wrap">{message.content}</p>
         </div>
 
-        {message.requires_response && (
+        {requiresResponse && (
           <div className="mt-2 flex items-center gap-2 text-sm text-amber-600">
             <AlertCircle className="h-4 w-4" />
-            <span>Response required</span>
+            <span>Response required - Low confidence ({Math.round(message.confidence! * 100)}%)</span>
+          </div>
+        )}
+
+        {/* Show tool calls if present */}
+        {message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {message.toolCalls.map((toolCall: any, index: number) => (
+              <div key={index} className="flex items-center gap-2 text-xs text-gray-500">
+                <Wrench className="h-3 w-3" />
+                <span>Used: {toolCall.tool}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Show suggested actions */}
+        {message.suggestedActions && message.suggestedActions.length > 0 && (
+          <div className="mt-2 space-y-1">
+            <p className="text-xs font-medium text-gray-500">Suggested actions:</p>
+            {message.suggestedActions.map((action: any, index: number) => (
+              <div key={index} className="flex items-center gap-2">
+                <button className="rounded bg-blue-50 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100">
+                  {action.description}
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
         {message.metadata?.documents && (
           <div className="mt-2">
             <DocumentViewer documents={message.metadata.documents} />
-          </div>
-        )}
-
-        {/* Show email/communication content if present */}
-        {message.metadata?.email_content && (
-          <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="mb-1 text-xs font-medium text-gray-500">Email from {message.metadata.sender_name}</p>
-            <p className="text-sm text-gray-700">{message.metadata.email_content}</p>
           </div>
         )}
       </div>

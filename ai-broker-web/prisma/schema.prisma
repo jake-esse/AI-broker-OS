@@ -317,10 +317,10 @@ model EmailProcessingLog {
 }
 
 model Email {
-  messageId   String   @map("message_id")
+  messageId   String   @unique @map("message_id")
   rawData     Json?    @map("raw_data")
   content     String?
-  processedAt DateTime @default(now()) @map("processed_at")
+  processedAt DateTime? @map("processed_at")
   subject     String?
   provider    String?
   fromAddress String   @map("from_address")
@@ -406,4 +406,32 @@ model UserSettings {
   userId               String   @unique @map("user_id") @db.Uuid
 
   @@map("user_settings")
+}
+
+model ClarificationRequest {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brokerId             String   @map("broker_id") @db.Uuid
+  shipperEmail         String   @map("shipper_email")
+  freightType          String   @map("freight_type")
+  extractedData        Json     @map("extracted_data")
+  missingFields        String[] @map("missing_fields")
+  validationWarnings   String[] @map("validation_warnings")
+  emailSent            Boolean  @default(false) @map("email_sent")
+  emailId              String?  @map("email_id")
+  emailMessageId       String?  @map("email_message_id") // For threading
+  sentAt               DateTime? @map("sent_at")
+  responseReceived     Boolean  @default(false) @map("response_received")
+  responseReceivedAt   DateTime? @map("response_received_at")
+  responseEmailId      String?  @map("response_email_id") @db.Uuid
+  mergedData           Json?    @map("merged_data") // Final complete data after response
+  loadCreated          Boolean  @default(false) @map("load_created")
+  loadId               String?  @map("load_id") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @map("updated_at")
+
+  @@index([brokerId], map: "idx_clarification_requests_broker_id")
+  @@index([shipperEmail], map: "idx_clarification_requests_shipper_email")
+  @@index([createdAt], map: "idx_clarification_requests_created_at")
+  @@index([emailMessageId], map: "idx_clarification_requests_message_id")
+  @@map("clarification_requests")
 }

@@ -12,6 +12,8 @@ interface EmailConnection {
   status: string
   lastChecked: string
   errorMessage?: string
+  hasTokens?: boolean
+  tokenExpiresAt?: string
 }
 
 export default function SettingsPage() {
@@ -23,6 +25,9 @@ export default function SettingsPage() {
     autoCarrierSelect: 75,
     autoDispatch: 90,
   })
+  const [postToDAT, setPostToDAT] = useState(false)
+  const [preferredCarrierEmails, setPreferredCarrierEmails] = useState<string>('')
+  const [saving, setSaving] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -57,6 +62,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadConnections()
+    loadBrokerPreferences()
   }, [])
 
   const loadConnections = async () => {
@@ -92,6 +98,57 @@ export default function SettingsPage() {
   const connectEmail = (provider: 'google' | 'microsoft') => {
     // Use new connect endpoint for additional email accounts
     window.location.href = `/api/auth/connect/${provider}`
+  }
+
+  const loadBrokerPreferences = async () => {
+    try {
+      const response = await fetch('/api/broker/preferences')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.preferences) {
+          setPostToDAT(data.preferences.postToDAT || false)
+          setPreferredCarrierEmails(
+            data.preferences.preferredCarriers?.join('\n') || ''
+          )
+          if (data.preferences.confidenceThresholds) {
+            setConfidenceThresholds(data.preferences.confidenceThresholds)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading broker preferences:', error)
+    }
+  }
+
+  const saveBrokerPreferences = async () => {
+    setSaving(true)
+    try {
+      const preferredCarriers = preferredCarrierEmails
+        .split('\n')
+        .map(email => email.trim())
+        .filter(email => email.length > 0)
+
+      const response = await fetch('/api/broker/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postToDAT,
+          preferredCarriers,
+          confidenceThresholds
+        })
+      })
+
+      if (response.ok) {
+        alert('Preferences saved successfully!')
+      } else {
+        throw new Error('Failed to save preferences')
+      }
+    } catch (error) {
+      console.error('Error saving preferences:', error)
+      alert('Failed to save preferences')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const deleteConnection = async (id: string) => {
@@ -148,8 +205,10 @@ export default function SettingsPage() {
 
   const getProviderName = (provider: string) => {
     switch (provider) {
+      case 'oauth_google':
       case 'gmail':
         return 'Gmail'
+      case 'oauth_outlook':
       case 'outlook':
         return 'Outlook'
       case 'imap':
@@ -221,6 +280,11 @@ export default function SettingsPage() {
                             : 'Never'
                         }
                       </div>
+                      {connection.provider.startsWith('oauth') && !connection.hasTokens && (
+                        <div className="text-sm text-amber-600 mt-1">
+                          ⚠️ No authentication tokens - needs reconnection
+                        </div>
+                      )}
                       {connection.errorMessage && (
                         <div className="text-sm text-red-600 mt-1">
                           {connection.errorMessage}
@@ -341,6 +405,66 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Load Board Integration */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="text-lg font-medium text-gray-900">Load Board Integration</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Configure how your loads are distributed to carriers
+          </p>
+          
+          <div className="mt-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Post to DAT Load Board
+                </label>
+                <p className="text-sm text-gray-500">
+                  Automatically post loads to DAT for wider carrier visibility
+                </p>
+              </div>
+              <button
+                type="button"
+                className={`${
+                  postToDAT ? 'bg-blue-600' : 'bg-gray-200'
+                } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                onClick={() => setPostToDAT(!postToDAT)}
+              >
+                <span
+                  className={`${
+                    postToDAT ? 'translate-x-5' : 'translate-x-0'
+                  } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Preferred Carriers */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="text-lg font-medium text-gray-900">Preferred Carriers</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Add email addresses of carriers who should receive your loads first
+          </p>
+          
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700">
+              Carrier Email Addresses
+            </label>
+            <p className="text-sm text-gray-500 mb-2">
+              Enter one email address per line. These carriers will receive load notifications before others.
+            </p>
+            <textarea
+              rows={6}
+              value={preferredCarrierEmails}
+              onChange={(e) => setPreferredCarrierEmails(e.target.value)}
+              placeholder="carrier1@example.com
+carrier2@example.com
+carrier3@example.com"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
         {/* OAuth Setup Instructions */}
         <div className="rounded-lg bg-yellow-50 p-4">
           <h3 className="font-semibold text-yellow-900 mb-2">Setup Instructions</h3>
@@ -366,8 +490,16 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex justify-end">
-          <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-            <Save className="h-4 w-4" />
+          <button
+            onClick={saveBrokerPreferences}
+            disabled={saving}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
             Save Changes
           </button>
         </div>

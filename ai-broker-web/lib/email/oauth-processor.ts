@@ -187,11 +187,27 @@ export class EmailOAuthProcessor {
       subject: getHeader('Subject'),
       date: getHeader('Date'),
       body: body,
+      inReplyTo: getHeader('In-Reply-To'), // Threading
+      references: getHeader('References'), // Threading
       raw: message
     }
   }
 
   private parseOutlookMessage(message: any): any {
+    // Extract threading headers from internetMessageHeaders
+    let inReplyTo = ''
+    let references = ''
+    if (message.internetMessageHeaders) {
+      const inReplyToHeader = message.internetMessageHeaders.find(
+        (h: any) => h.name.toLowerCase() === 'in-reply-to'
+      )
+      const referencesHeader = message.internetMessageHeaders.find(
+        (h: any) => h.name.toLowerCase() === 'references'
+      )
+      inReplyTo = inReplyToHeader?.value || ''
+      references = referencesHeader?.value || ''
+    }
+    
     return {
       messageId: message.internetMessageId || message.id,
       from: message.from?.emailAddress?.address || '',
@@ -199,6 +215,8 @@ export class EmailOAuthProcessor {
       subject: message.subject || '',
       date: message.receivedDateTime || '',
       body: message.body?.content || '',
+      inReplyTo: inReplyTo, // Threading
+      references: references, // Threading
       raw: message
     }
   }
@@ -243,6 +261,10 @@ export class EmailOAuthProcessor {
     try {
       console.log('[processEmail] Processing email:', email.id)
       
+      // Extract threading information from raw data
+      const inReplyTo = email.rawData?.inReplyTo || ''
+      const references = email.rawData?.references || ''
+      
       // Call the intake processing API
       const response = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/intake/process`, {
         method: 'POST',
@@ -257,7 +279,9 @@ export class EmailOAuthProcessor {
           from: email.fromAddress,
           to: email.toAddress,
           subject: email.subject,
-          raw_data: email.rawData
+          raw_data: email.rawData,
+          in_reply_to: inReplyTo,
+          references: references
         })
       })
       

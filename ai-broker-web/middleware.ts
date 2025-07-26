@@ -25,10 +25,11 @@ export async function middleware(request: NextRequest) {
   
   // If has token, verify it's not expired (basic check)
   if (token) {
+    let hasValidToken = false
     try {
       // For now, just check if token exists
       // In production, you'd verify the JWT properly
-      const hasValidToken = token.value && token.value.length > 0
+      hasValidToken = token.value && token.value.length > 0
       
       if (!hasValidToken) {
         // Invalid token, clear it and redirect to login
@@ -46,7 +47,7 @@ export async function middleware(request: NextRequest) {
     // If user is trying to access login page while logged in
     if (pathname === '/login' && hasValidToken) {
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
+      url.pathname = '/loads'
       return NextResponse.redirect(url)
     }
   }
