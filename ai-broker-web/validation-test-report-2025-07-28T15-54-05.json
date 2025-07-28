@@ -1,0 +1,530 @@
+{
+  "summary": {
+    "totalTests": 19,
+    "passedTests": 0,
+    "accuracy": "0.0",
+    "testDuration": 82314,
+    "timestamp": "2025-07-28T15:54:05.498Z"
+  },
+  "accuracyBreakdown": {
+    "freightType": {
+      "correct": 3,
+      "total": 19,
+      "accuracy": "15.8"
+    },
+    "missingFields": {
+      "correct": 8,
+      "total": 19,
+      "accuracy": "42.1"
+    },
+    "actionDecision": {
+      "correct": 2,
+      "total": 19,
+      "accuracy": "10.5"
+    }
+  },
+  "categoryResults": [
+    {
+      "category": "Temperature Ambiguity",
+      "total": 3,
+      "passed": 0,
+      "accuracy": "0.0"
+    },
+    {
+      "category": "Location Ambiguity",
+      "total": 3,
+      "passed": 0,
+      "accuracy": "0.0"
+    },
+    {
+      "category": "Weight Ambiguity",
+      "total": 3,
+      "passed": 0,
+      "accuracy": "0.0"
+    },
+    {
+      "category": "Equipment Confusion",
+      "total": 2,
+      "passed": 0,
+      "accuracy": "0.0"
+    },
+    {
+      "category": "Hazmat Ambiguity",
+      "total": 2,
+      "passed": 0,
+      "accuracy": "0.0"
+    },
+    {
+      "category": "Date Ambiguity",
+      "total": 2,
+      "passed": 0,
+      "accuracy": "0.0"
+    },
+    {
+      "category": "Partial vs LTL",
+      "total": 2,
+      "passed": 0,
+      "accuracy": "0.0"
+    },
+    {
+      "category": "Complete Information",
+      "total": 2,
+      "passed": 0,
+      "accuracy": "0.0"
+    }
+  ],
+  "detailedResults": [
+    {
+      "id": "temp-1",
+      "category": "Temperature Ambiguity",
+      "description": "Commodity suggests reefer but no temp specified",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected proceed_to_quote, got ignore"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 3482
+    },
+    {
+      "id": "temp-2",
+      "category": "Temperature Ambiguity",
+      "description": "Temperature mentioned casually, not as requirement",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected proceed_to_quote, got ignore"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 2885
+    },
+    {
+      "id": "temp-3",
+      "category": "Temperature Ambiguity",
+      "description": "Reefer with only max temp specified",
+      "passed": false,
+      "issues": [
+        "Action: expected proceed_to_quote, got request_clarification",
+        "Missing fields mismatch:",
+        "  - Incorrectly flagged as missing: temperature"
+      ],
+      "expected": {
+        "freightType": "FTL_REEFER",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "freightType": "FTL_REEFER",
+        "missingFields": [
+          "temperature"
+        ],
+        "action": "request_clarification",
+        "confidence": 95
+      },
+      "duration": 5866
+    },
+    {
+      "id": "loc-1",
+      "category": "Location Ambiguity",
+      "description": "City/state without zip but clear location",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_FLATBED, got undefined",
+        "Action: expected request_clarification, got ignore",
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: dimensions"
+      ],
+      "expected": {
+        "freightType": "FTL_FLATBED",
+        "missingFields": [
+          "dimensions"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 5307
+    },
+    {
+      "id": "loc-2",
+      "category": "Location Ambiguity",
+      "description": "Partial address with landmark",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected request_clarification, got ignore",
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: pickup_location, delivery_location"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [
+          "pickup_location",
+          "delivery_location"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 3556
+    },
+    {
+      "id": "loc-3",
+      "category": "Location Ambiguity",
+      "description": "International border crossing mentioned",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected request_clarification, got ignore",
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: commodity"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [
+          "commodity"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 3498
+    },
+    {
+      "id": "weight-1",
+      "category": "Weight Ambiguity",
+      "description": "Weight in different units",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_FLATBED, got undefined",
+        "Action: expected proceed_to_quote, got ignore"
+      ],
+      "expected": {
+        "freightType": "FTL_FLATBED",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 3607
+    },
+    {
+      "id": "weight-2",
+      "category": "Weight Ambiguity",
+      "description": "Multiple pieces with individual weights",
+      "passed": false,
+      "issues": [
+        "Freight type: expected LTL, got undefined",
+        "Action: expected request_clarification, got ignore",
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: dimensions"
+      ],
+      "expected": {
+        "freightType": "LTL",
+        "missingFields": [
+          "dimensions"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 5424
+    },
+    {
+      "id": "weight-3",
+      "category": "Weight Ambiguity",
+      "description": "Weight range instead of exact",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected request_clarification, got ignore",
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: commodity"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [
+          "commodity"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 2929
+    },
+    {
+      "id": "equip-1",
+      "category": "Equipment Confusion",
+      "description": "Conflicting equipment signals",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_FLATBED, got undefined",
+        "Action: expected proceed_to_quote, got ignore"
+      ],
+      "expected": {
+        "freightType": "FTL_FLATBED",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 3550
+    },
+    {
+      "id": "equip-2",
+      "category": "Equipment Confusion",
+      "description": "Vague equipment description",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected proceed_to_quote, got ignore"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 2908
+    },
+    {
+      "id": "hazmat-1",
+      "category": "Hazmat Ambiguity",
+      "description": "Hazmat keyword without actual hazmat",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected proceed_to_quote, got ignore"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 2991
+    },
+    {
+      "id": "hazmat-2",
+      "category": "Hazmat Ambiguity",
+      "description": "Partial hazmat info",
+      "passed": false,
+      "issues": [
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: proper_shipping_name"
+      ],
+      "expected": {
+        "freightType": "FTL_HAZMAT",
+        "missingFields": [
+          "un_number",
+          "proper_shipping_name",
+          "packing_group",
+          "emergency_contact"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "freightType": "FTL_HAZMAT",
+        "missingFields": [
+          "un_number",
+          "packing_group",
+          "emergency_contact"
+        ],
+        "action": "request_clarification",
+        "confidence": 95
+      },
+      "duration": 3524
+    },
+    {
+      "id": "date-1",
+      "category": "Date Ambiguity",
+      "description": "Relative date references",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected request_clarification, got ignore",
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: commodity"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [
+          "commodity"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 3216
+    },
+    {
+      "id": "date-2",
+      "category": "Date Ambiguity",
+      "description": "Appointment time without date",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_FLATBED, got undefined",
+        "Action: expected request_clarification, got ignore",
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: pickup_date"
+      ],
+      "expected": {
+        "freightType": "FTL_FLATBED",
+        "missingFields": [
+          "pickup_date"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 4005
+    },
+    {
+      "id": "partial-1",
+      "category": "Partial vs LTL",
+      "description": "Weight in partial range but called LTL",
+      "passed": false,
+      "issues": [
+        "Freight type: expected PARTIAL, got undefined",
+        "Action: expected request_clarification, got ignore",
+        "Missing fields mismatch:",
+        "  - Failed to identify as missing: commodity"
+      ],
+      "expected": {
+        "freightType": "PARTIAL",
+        "missingFields": [
+          "commodity"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 3752
+    },
+    {
+      "id": "partial-2",
+      "category": "Partial vs LTL",
+      "description": "True LTL with class",
+      "passed": false,
+      "issues": [
+        "Missing fields mismatch:",
+        "  - Incorrectly flagged as missing: dimensions",
+        "  - Failed to identify as missing: commodity"
+      ],
+      "expected": {
+        "freightType": "LTL",
+        "missingFields": [
+          "commodity"
+        ],
+        "action": "request_clarification"
+      },
+      "actual": {
+        "freightType": "LTL",
+        "missingFields": [
+          "dimensions"
+        ],
+        "action": "request_clarification",
+        "confidence": 95
+      },
+      "duration": 4207
+    },
+    {
+      "id": "complete-1",
+      "category": "Complete Information",
+      "description": "All info present but scattered",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_DRY_VAN, got undefined",
+        "Action: expected proceed_to_quote, got ignore"
+      ],
+      "expected": {
+        "freightType": "FTL_DRY_VAN",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 3508
+    },
+    {
+      "id": "complete-2",
+      "category": "Complete Information",
+      "description": "Flatbed with all requirements",
+      "passed": false,
+      "issues": [
+        "Freight type: expected FTL_FLATBED, got undefined",
+        "Action: expected proceed_to_quote, got ignore"
+      ],
+      "expected": {
+        "freightType": "FTL_FLATBED",
+        "missingFields": [],
+        "action": "proceed_to_quote"
+      },
+      "actual": {
+        "missingFields": [],
+        "action": "ignore",
+        "confidence": 0
+      },
+      "duration": 4575
+    }
+  ]
+}

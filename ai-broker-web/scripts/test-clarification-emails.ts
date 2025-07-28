@@ -1,197 +1,181 @@
 /**
- * Test script for clarification email sending
+ * Test Clarification Email Generation
+ * 
+ * Shows actual email content generated for different scenarios
  * 
  * Run with: npx tsx scripts/test-clarification-emails.ts
- * 
- * Prerequisites:
- * - Broker account with connected Gmail or Outlook
- * - Valid database connection
  */
 
-import { IntakeAgentLLMEnhanced } from '../lib/agents/intake-llm-enhanced'
-import { OAuthEmailSender } from '../lib/email/oauth-sender'
+import { config } from 'dotenv'
+import * as path from 'path'
 import { ClarificationGenerator } from '../lib/email/clarification-generator'
-import { FreightValidator } from '../lib/freight-types/freight-validator'
-import prisma from '../lib/prisma'
+import { FreightType } from '../lib/freight-types/freight-validator'
 
-// Test email with missing information
-const incompleteEmail = {
-  from: 'test-shipper@example.com',
-  to: 'broker@example.com',
-  subject: 'Need shipping quote',
-  content: `
-    Hi,
-    
-    I need to ship frozen seafood from Miami.
-    It's about 40,000 lbs and needs to stay at 32-34°F.
-    
-    Can you give me a quote?
-    
-    Thanks
-  `,
-  brokerId: process.env.TEST_BROKER_ID || ''
-}
+config({ path: path.join(__dirname, '../.env.local') })
 
-async function testClarificationFlow() {
-  console.log('🚛 Testing Clarification Email Flow\n')
-  console.log('=' .repeat(80))
-  
-  if (!process.env.TEST_BROKER_ID) {
-    console.error('❌ Please set TEST_BROKER_ID environment variable')
-    console.log('Find a broker ID with: npx prisma studio')
-    return
-  }
-
-  try {
-    // Step 1: Get broker details
-    console.log('\n📋 Step 1: Getting broker details...')
-    const broker = await prisma.broker.findUnique({
-      where: { id: process.env.TEST_BROKER_ID },
-      include: { user: true }
-    })
-
-    if (!broker) {
-      console.error('❌ Broker not found')
-      return
+// Test scenarios with different missing information
+const scenarios = [
+  {
+    name: 'Simple Dry Van - Missing Pickup Date',
+    data: {
+      shipperEmail: 'shipper@example.com',
+      brokerName: 'Swift Freight Solutions',
+      freightType: 'FTL_DRY_VAN' as FreightType,
+      extractedData: {
+        pickup_location: 'Chicago, IL 60601',
+        delivery_location: 'Dallas, TX 75201',
+        weight: 38000,
+        commodity: 'Packaged consumer goods',
+        equipment_type: 'Dry van'
+      },
+      missingFields: [{
+        field: 'pickup_date',
+        issue: 'missing' as const,
+        message: 'Pickup date is required'
+      }],
+      originalSubject: 'Need quote for Chicago to Dallas',
+      originalContent: 'I need to ship 38,000 lbs of consumer goods from Chicago to Dallas. Need a dry van.',
+      loadId: 'LOAD-2024-001',
+      threadId: 'msg-12345'
     }
-
-    console.log(`✅ Found broker: ${broker.companyName} (${broker.email})`)
-
-    // Step 2: Check email connections
-    console.log('\n📋 Step 2: Checking email connections...')
-    const emailConnection = await prisma.emailConnection.findFirst({
-      where: {
-        brokerId: broker.id,
-        status: 'active'
-      }
-    })
-
-    if (!emailConnection) {
-      console.error('❌ No active email connection found')
-      console.log('Please connect Gmail or Outlook in the settings page')
-      return
+  },
+  {
+    name: 'Reefer Load - Missing Temperature',
+    data: {
+      shipperEmail: 'logistics@foodco.com',
+      brokerName: 'Cold Chain Express',
+      freightType: 'FTL_REEFER' as FreightType,
+      extractedData: {
+        pickup_location: 'Salinas, CA 93901',
+        delivery_location: 'Chicago, IL 60601',
+        weight: 42000,
+        commodity: 'Fresh produce',
+        equipment_type: 'Reefer',
+        pickup_date: '2024-12-20'
+      },
+      missingFields: [{
+        field: 'temperature',
+        issue: 'missing' as const,
+        message: 'Temperature requirements are required for refrigerated shipments'
+      }],
+      originalSubject: 'Produce shipment - Salinas to Chicago',
+      originalContent: 'We have 42,000 lbs of fresh produce going from Salinas to Chicago. Need reefer truck for pickup on Dec 20.',
+      loadId: 'LOAD-2024-002',
+      threadId: 'msg-67890'
     }
-
-    console.log(`✅ Active ${emailConnection.provider} connection: ${emailConnection.email}`)
-
-    // Step 3: Process the incomplete email
-    console.log('\n📋 Step 3: Processing incomplete email...')
-    const agent = new IntakeAgentLLMEnhanced()
-    const result = await agent.processEmail(incompleteEmail)
-
-    console.log(`\n📊 Processing Result:`)
-    console.log(`Action: ${result.action}`)
-    console.log(`Confidence: ${result.confidence}%`)
-    console.log(`Freight Type: ${result.freight_type}`)
-    
-    if (result.extracted_data) {
-      console.log('\n📦 Extracted Data:')
-      console.log(JSON.stringify(result.extracted_data, null, 2))
-    }
-
-    if (result.missing_fields) {
-      console.log('\n⚠️  Missing Fields:')
-      result.missing_fields.forEach(field => console.log(`  - ${field}`))
-    }
-
-    // Step 4: Generate and preview clarification email
-    console.log('\n📋 Step 4: Generating clarification email...')
-    
-    if (result.action === 'request_clarification') {
-      const emailData = ClarificationGenerator.generateEmail({
-        shipperEmail: incompleteEmail.from,
-        brokerName: broker.companyName || broker.user?.name || 'Your Freight Broker',
-        freightType: result.freight_type || 'UNKNOWN',
-        extractedData: result.extracted_data || {},
-        missingFields: result.missing_fields || [],
-        validationWarnings: result.validation_warnings
-      })
-
-      console.log('\n📧 Email Preview:')
-      console.log('-'.repeat(60))
-      console.log(`To: ${incompleteEmail.from}`)
-      console.log(`Subject: ${emailData.subject}`)
-      console.log('-'.repeat(60))
-      console.log('\nText Version:')
-      console.log(emailData.textContent)
-      console.log('-'.repeat(60))
-
-      // Step 5: Send the email (optional - uncomment to actually send)
-      const shouldSend = process.argv.includes('--send')
-      if (shouldSend) {
-        console.log('\n📋 Step 5: Sending clarification email...')
-        const sender = new OAuthEmailSender()
-        const sendResult = await sender.sendEmail(broker.id, {
-          to: incompleteEmail.from,
-          subject: emailData.subject,
-          htmlContent: emailData.htmlContent,
-          textContent: emailData.textContent
-        })
-
-        if (sendResult.success) {
-          console.log(`✅ Email sent successfully via ${sendResult.provider}`)
-          console.log(`Message ID: ${sendResult.messageId}`)
-          
-          // Create clarification request record
-          const clarificationRequest = await prisma.clarificationRequest.create({
-            data: {
-              brokerId: broker.id,
-              shipperEmail: incompleteEmail.from,
-              freightType: result.freight_type || 'UNKNOWN',
-              extractedData: result.extracted_data || {},
-              missingFields: result.missing_fields || [],
-              validationWarnings: result.validation_warnings || [],
-              emailSent: true,
-              emailId: sendResult.messageId,
-              sentAt: new Date()
-            }
-          })
-          
-          console.log(`📝 Created clarification request: ${clarificationRequest.id}`)
-        } else {
-          console.error(`❌ Failed to send email: ${sendResult.error}`)
+  },
+  {
+    name: 'Hazmat Load - Multiple Missing Fields',
+    data: {
+      shipperEmail: 'shipping@chemicalcorp.com',
+      brokerName: 'HazMat Transport Pros',
+      freightType: 'FTL_HAZMAT' as FreightType,
+      extractedData: {
+        pickup_location: 'Houston, TX 77001',
+        delivery_location: 'Atlanta, GA 30301',
+        weight: 35000,
+        commodity: 'Chemical products',
+        equipment_type: 'Dry van',
+        pickup_date: '2024-12-22'
+      },
+      missingFields: [
+        {
+          field: 'hazmat_class',
+          issue: 'missing' as const,
+          message: 'DOT hazmat classification is required'
+        },
+        {
+          field: 'un_number',
+          issue: 'missing' as const,
+          message: 'UN identification number is required'
+        },
+        {
+          field: 'emergency_contact',
+          issue: 'missing' as const,
+          message: '24/7 emergency contact is required'
         }
-      } else {
-        console.log('\n💡 To actually send the email, run with --send flag:')
-        console.log('   npx tsx scripts/test-clarification-emails.ts --send')
-      }
-    } else {
-      console.log('\n✅ Email had sufficient information - no clarification needed')
+      ],
+      originalSubject: 'Hazmat shipment Houston to Atlanta',
+      originalContent: 'Need to ship 35,000 lbs of chemical products from Houston to Atlanta. Pickup Dec 22.',
+      loadId: 'LOAD-2024-003',
+      threadId: 'msg-11111'
     }
-
-    // Step 6: Test clarification response handling
-    console.log('\n📋 Step 6: Testing clarification response...')
-    
-    const clarificationResponse = {
-      ...incompleteEmail,
-      subject: 'Re: ' + emailData.subject,
-      content: `
-        The delivery location is Boston, MA 02101.
-        Need it delivered by end of day Friday.
-        
-        Thanks!
-      `,
-      inReplyTo: '<original-message-id@example.com>'
+  },
+  {
+    name: 'Insufficient Location Information',
+    data: {
+      shipperEmail: 'ops@distributor.com',
+      brokerName: 'Precision Logistics',
+      freightType: 'FTL_DRY_VAN' as FreightType,
+      extractedData: {
+        pickup_location: 'Walmart DC',
+        delivery_location: 'somewhere in Miami',
+        weight: 40000,
+        commodity: 'Mixed merchandise',
+        equipment_type: 'Dry van',
+        pickup_date: 'Next Monday'
+      },
+      missingFields: [
+        {
+          field: 'pickup_location',
+          issue: 'insufficient' as const,
+          message: 'Need complete address with street, city, state, and ZIP'
+        },
+        {
+          field: 'delivery_location',
+          issue: 'insufficient' as const,
+          message: 'Need complete address with street, city, state, and ZIP'
+        },
+        {
+          field: 'pickup_date',
+          issue: 'insufficient' as const,
+          message: 'Need specific date (MM/DD/YYYY format)'
+        }
+      ],
+      originalSubject: 'Load from Walmart DC to Miami',
+      originalContent: 'Have a load from Walmart DC to somewhere in Miami. 40k lbs mixed merchandise. Pickup next Monday.',
+      loadId: 'LOAD-2024-004',
+      threadId: 'msg-22222'
     }
-
-    console.log('\n🔄 Processing clarification response...')
-    const responseResult = await agent.processEmail(clarificationResponse)
-    
-    console.log(`\nResponse Processing Result:`)
-    console.log(`Action: ${responseResult.action}`)
-    console.log(`All fields present: ${responseResult.action === 'proceed_to_quote'}`)
-    
-    if (responseResult.extracted_data) {
-      console.log('\n📦 Complete Extracted Data:')
-      console.log(JSON.stringify(responseResult.extracted_data, null, 2))
-    }
-
-  } catch (error) {
-    console.error('\n❌ Error:', error)
-  } finally {
-    await prisma.$disconnect()
   }
+]
+
+async function testEmailGeneration() {
+  console.log('📧 CLARIFICATION EMAIL GENERATION TEST')
+  console.log('=====================================\n')
+  
+  const generator = new ClarificationGenerator()
+  
+  for (const scenario of scenarios) {
+    console.log(`\n${'='.repeat(80)}`)
+    console.log(`SCENARIO: ${scenario.name}`)
+    console.log('='.repeat(80))
+    
+    try {
+      const result = await generator.generateEmail(scenario.data as any)
+      
+      console.log('\n📬 GENERATED EMAIL:')
+      console.log('-'.repeat(50))
+      console.log(`TO: ${scenario.data.shipperEmail}`)
+      console.log(`SUBJECT: ${result.subject}`)
+      console.log('-'.repeat(50))
+      console.log('\nPLAIN TEXT VERSION:')
+      console.log(result.textContent)
+      console.log('\n' + '-'.repeat(50))
+      
+      // Show missing fields summary
+      console.log('\n📋 MISSING FIELDS REQUESTED:')
+      scenario.data.missingFields.forEach(field => {
+        console.log(`- ${field.field} (${field.issue}): ${field.message}`)
+      })
+      
+    } catch (error: any) {
+      console.error(`❌ Error generating email: ${error.message}`)
+    }
+  }
+  
+  console.log('\n\n✅ EMAIL GENERATION TEST COMPLETE')
 }
 
 // Run the test
-testClarificationFlow().catch(console.error)
+testEmailGeneration().catch(console.error)

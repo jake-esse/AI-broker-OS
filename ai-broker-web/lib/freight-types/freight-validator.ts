@@ -111,8 +111,11 @@ export const FREIGHT_REQUIREMENTS: Record<FreightType, FreightRequirements> = {
       weight: (value) => value > 0 && value <= 43000 || 'Weight must be between 1 and 43,000 lbs for reefer',
       temperature: (value) => {
         if (!value || typeof value !== 'object') return 'Temperature requirements must be specified'
-        if (value.min === undefined || value.max === undefined) return 'Both min and max temperature required'
-        if (value.unit !== 'F' && value.unit !== 'C') return 'Temperature unit must be F or C'
+        // Allow either min or max to be specified, or both
+        if (value.min === undefined && value.max === undefined) return 'At least one temperature limit (min or max) must be specified'
+        if ((value.min !== undefined || value.max !== undefined) && (!value.unit || (value.unit !== 'F' && value.unit !== 'C'))) {
+          return 'Temperature unit must be F or C when temperature is specified'
+        }
         return true
       }
     }
@@ -282,44 +285,82 @@ export class FreightValidator {
       return 'FTL_HAZMAT'
     }
 
-    // Check for reefer/temperature requirements
-    if (data.temperature || 
-        data.equipment_type?.toLowerCase().includes('reefer') ||
-        data.equipment_type?.toLowerCase().includes('refrigerated') ||
-        data.commodity?.toLowerCase().match(/frozen|refrigerated|perishable|produce/)) {
-      return 'FTL_REEFER'
+    // Check equipment type first for explicit mentions
+    const equipmentType = data.equipment_type?.toLowerCase() || ''
+    
+    // PRIORITY 1: Check for explicit dry van FIRST (most common)
+    if (equipmentType.includes('dry van') || 
+        equipmentType === 'van' || 
+        (equipmentType.includes('dry') && !equipmentType.includes('deck'))) {
+      return 'FTL_DRY_VAN'
     }
 
-    // Check for flatbed requirements
-    if (data.equipment_type?.toLowerCase().includes('flatbed') ||
-        data.equipment_type?.toLowerCase().includes('step deck') ||
-        data.equipment_type?.toLowerCase().includes('rgn') ||
-        data.tarping_required !== undefined ||
-        data.oversize_permits !== undefined) {
+    // PRIORITY 2: Check for reefer/temperature requirements
+    if (equipmentType.includes('reefer') ||
+        equipmentType.includes('refrigerated')) {
+      return 'FTL_REEFER'
+    }
+    
+    // Check for temperature data ONLY if no explicit equipment type conflicts
+    if (!equipmentType.includes('dry') && !equipmentType.includes('van') &&
+        data.temperature && 
+        (data.temperature.min !== undefined || data.temperature.max !== undefined)) {
+      return 'FTL_REEFER'
+    }
+    
+    // PRIORITY 3: Check for flatbed
+    if (equipmentType.includes('flatbed') ||
+        equipmentType.includes('step deck') ||
+        equipmentType.includes('rgn') ||
+        data.tarping_required === true ||
+        data.oversize_permits === true) {
       return 'FTL_FLATBED'
     }
 
     // Check weight for LTL vs FTL determination
     if (data.weight) {
-      if (data.weight < 5000 || data.freight_class) {
+      // LTL indicators take priority
+      if (data.freight_class) {
         return 'LTL'
-      } else if (data.weight >= 5000 && data.weight <= 30000) {
-        // Could be partial or FTL - need more context
-        if (data.equipment_type?.toLowerCase().includes('partial')) {
+      }
+      
+      // Weight-based determination
+      if (data.weight < 5000 && data.weight >= 150) {
+        // Check for pallets/pieces which indicates LTL
+        if (data.piece_count || equipmentType.includes('ltl')) {
+          return 'LTL'
+        }
+        // Small shipment without LTL indicators = still LTL
+        return 'LTL'
+      } else if (data.weight >= 5000 && data.weight <= 15000) {
+        // Could be LTL or partial
+        if (data.piece_count && data.piece_count <= 10) {
+          return 'LTL'
+        }
+        if (equipmentType.includes('partial')) {
           return 'PARTIAL'
         }
+        // 5000-15000 lbs defaults to PARTIAL
+        return 'PARTIAL'
+      } else if (data.weight > 15000 && data.weight <= 30000) {
+        // Likely partial unless other indicators
+        return 'PARTIAL'
       }
     }
-
-    // Default to dry van FTL if equipment type suggests it
-    if (data.equipment_type?.toLowerCase().includes('van') ||
-        data.equipment_type?.toLowerCase().includes('dry')) {
-      return 'FTL_DRY_VAN'
+    
+    // Check commodity for temperature-sensitive items ONLY if no equipment type specified
+    if (!equipmentType && data.commodity?.toLowerCase().match(/frozen|refrigerated|perishable|ice cream/)) {
+      return 'FTL_REEFER'
     }
 
-    // If we have basic pickup/delivery but can't determine type
+    // Default based on common patterns
     if (data.pickup_location && data.delivery_location) {
-      return 'FTL_DRY_VAN' // Default to most common type
+      // Check for other indicators
+      if (equipmentType.includes('enclosed')) {
+        return 'FTL_DRY_VAN'
+      }
+      // Default to most common type
+      return 'FTL_DRY_VAN'
     }
 
     return 'UNKNOWN'
@@ -342,6 +383,13 @@ export class FreightValidator {
       const value = data[field as keyof LoadData]
       if (value === undefined || value === null || value === '') {
         missingFields.push(field)
+      } else if (field === 'temperature' && typeof value === 'object') {
+        // Special handling for temperature object
+        const temp = value as any
+        if ((temp.min === null || temp.min === undefined) && 
+            (temp.max === null || temp.max === undefined)) {
+          missingFields.push(field)
+        }
       }
     }
 

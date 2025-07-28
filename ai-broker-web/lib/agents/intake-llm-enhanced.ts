@@ -10,6 +10,7 @@
 import { OpenAI } from 'openai'
 import prisma from '@/lib/prisma'
 import { FreightValidator, FreightType, LoadData } from '@/lib/freight-types/freight-validator'
+import { EnhancedFreightValidator } from '@/lib/freight-types/enhanced-validator'
 
 export interface EnhancedIntakeProcessResult {
   action: 'proceed_to_quote' | 'request_clarification' | 'ignore'
@@ -27,8 +28,15 @@ export class IntakeAgentLLMEnhanced {
   private openai: OpenAI
 
   constructor() {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      console.error('[IntakeAgentLLMEnhanced] OPENAI_API_KEY not found in environment')
+      throw new Error('OPENAI_API_KEY environment variable is not set')
+    }
+    console.log('[IntakeAgentLLMEnhanced] Initializing with API key:', apiKey.substring(0, 7) + '...')
+    
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: apiKey,
     })
   }
 
@@ -100,16 +108,40 @@ export class IntakeAgentLLMEnhanced {
       const freightType = FreightValidator.identifyFreightType(extractionResult.extracted_data)
       console.log('Identified freight type:', freightType)
 
-      // Third pass: Validate required fields for the freight type
-      const validation = FreightValidator.validateRequiredFields(
+      // Third pass: Basic validation for required fields
+      const basicValidation = FreightValidator.validateRequiredFields(
         extractionResult.extracted_data,
         freightType
       )
 
-      console.log('Validation result:', validation)
+      // Fourth pass: Enhanced semantic validation
+      const semanticIssues = EnhancedFreightValidator.validateSemantics(
+        extractionResult.extracted_data,
+        freightType
+      )
+
+      console.log('Basic validation result:', basicValidation)
+      console.log('Semantic validation issues:', semanticIssues.length)
+
+      // Determine if we have sufficient information
+      // First, convert basic missing fields to issues
+      const missingFieldIssues = basicValidation.missingFields.map(field => ({
+        field,
+        issue: 'missing' as const,
+        value: '',
+        message: `${FreightValidator.getFieldDisplayName(field)} is required`
+      }))
+      
+      // Combine basic missing fields with semantic issues
+      const allIssues = [...missingFieldIssues, ...semanticIssues]
+      
+      const criticalIssues = allIssues.filter(issue => 
+        issue.issue === 'missing' || 
+        (issue.issue === 'insufficient' && ['pickup_location', 'delivery_location', 'commodity'].includes(issue.field))
+      )
 
       // Determine action based on validation
-      if (validation.isValid && extractionResult.extracted_data?.pickup_location && extractionResult.extracted_data?.delivery_location) {
+      if (criticalIssues.length === 0) {
         // All required fields present - create load
         const loadId = await this.createEnhancedLoad(
           extractionResult.extracted_data,
@@ -122,24 +154,35 @@ export class IntakeAgentLLMEnhanced {
           confidence: extractionResult.confidence || 95,
           freight_type: freightType,
           extracted_data: extractionResult.extracted_data,
-          validation_warnings: validation.warnings,
+          validation_warnings: basicValidation.warnings,
           load_id: loadId
         }
       } else if (extractionResult.extracted_data && Object.keys(extractionResult.extracted_data).length > 0) {
-        // Missing some required fields - request clarification
-        const missingFieldNames = validation.missingFields.map(field => 
-          FreightValidator.getFieldDisplayName(field)
-        )
+        // Missing or insufficient information - request clarification
+        const clarificationSummary = EnhancedFreightValidator.getClarificationSummary(criticalIssues)
+        
+        // Convert semantic issues to field names for backward compatibility
+        const missingFields = criticalIssues
+          .filter(issue => issue.issue === 'missing')
+          .map(issue => issue.field)
+        
+        const clarificationNeeded = criticalIssues.map(issue => {
+          if (issue.issue === 'missing') {
+            return FreightValidator.getFieldDisplayName(issue.field)
+          } else {
+            return `${FreightValidator.getFieldDisplayName(issue.field)} (currently: "${issue.value}")`
+          }
+        })
         
         return {
           action: 'request_clarification',
           confidence: extractionResult.confidence || 70,
           freight_type: freightType,
           extracted_data: extractionResult.extracted_data,
-          clarification_needed: missingFieldNames,
-          missing_fields: validation.missingFields,
-          validation_warnings: validation.warnings,
-          reason: `Missing required information for ${FreightValidator.getFreightTypeDescription(freightType)}`
+          clarification_needed: clarificationNeeded,
+          missing_fields: missingFields,
+          validation_warnings: basicValidation.warnings,
+          reason: clarificationSummary || `Missing required information for ${FreightValidator.getFreightTypeDescription(freightType)}`
         }
       } else {
         // Not enough information to process
@@ -160,19 +203,42 @@ export class IntakeAgentLLMEnhanced {
   }
 
   async extractLoadData(emailData: any): Promise<any> {
-    const systemPrompt = `You are an AI assistant for a freight broker. Analyze emails to determine if they are load quote requests and extract ALL relevant information.
+    // Use GPT-4o for best extraction accuracy
+    const extractionModel = process.env.EXTRACTION_LLM_MODEL || 'gpt-4o'
+    
+    // Simplified extraction prompt - just extract, don't validate
+    const systemPrompt = `You are extracting freight information from emails for a freight broker.
+
+TASK: Determine if this is a NEW load quote request and extract freight information.
+
+CLASSIFICATION:
+- IS a load request: Shipper asking for quote/pricing on specific shipment
+- NOT a load request: Invoice, status update, rate negotiation, general inquiry
+
+EXTRACTION APPROACH:
+1. Extract exactly what is written in the email
+2. Do NOT judge if information is sufficient or complete
+3. Do NOT make up or infer missing information
+4. Set field to null ONLY if completely absent from email
+5. If information exists but seems vague (e.g., "near airport"), extract it as-is
+
+SPECIAL RULES:
+- Weight: Convert tons to pounds (1 ton = 2000 lbs)
+- Temperature: Only extract if explicitly required (e.g., "keep at 32°F")
+- Equipment: Extract exactly as stated (don't change "dry van" to "DRY_VAN")
 
 For each email, extract:
 
 BASIC INFORMATION (always try to extract):
-- pickup_location: Full location string
+- pickup_location: Full location string (set to null if only vague landmarks like "near airport")
 - pickup_city, pickup_state, pickup_zip: Parsed location components
-- delivery_location: Full location string  
+- delivery_location: Full location string (set to null if only vague landmarks)
 - delivery_city, delivery_state, delivery_zip: Parsed location components
-- weight: Weight in pounds (convert from tons if needed)
-- commodity: What is being shipped
-- pickup_date: When pickup is needed
-- equipment_type: Van, reefer, flatbed, etc.
+- weight: Weight in pounds (convert: 1 ton = 2000 lbs, extract exact value from ranges)
+- commodity: SPECIFIC description of freight (null if only generic like "goods", "items", "products")
+- pickup_date: When pickup is needed (null if only time without date)
+- equipment_type: Extract EXACTLY as mentioned (e.g., "dry van", "53' dry van", "reefer", "flatbed")
+- piece_count: Number of pieces/pallets (extract if mentioned, especially for LTL)
 
 DIMENSIONS (for flatbed, LTL, or when mentioned):
 - dimensions.length: Length in inches
@@ -180,10 +246,10 @@ DIMENSIONS (for flatbed, LTL, or when mentioned):
 - dimensions.height: Height in inches
 - piece_count: Number of pieces/pallets
 
-TEMPERATURE CONTROL (for refrigerated/frozen goods):
-- temperature.min: Minimum temperature
-- temperature.max: Maximum temperature
-- temperature.unit: F or C
+TEMPERATURE CONTROL (ONLY extract if temperature is explicitly mentioned):
+- temperature.min: Minimum temperature (only if stated)
+- temperature.max: Maximum temperature (only if stated)  
+- temperature.unit: F or C (only if temperature is given)
 
 HAZMAT INFORMATION (if dangerous goods mentioned):
 - hazmat_class: Class 1-9
@@ -208,7 +274,7 @@ Return JSON with:
   "is_load_request": boolean,
   "confidence": 0-100,
   "extracted_data": { all fields found },
-  "reasoning": "explanation"
+  "reasoning": "explanation of classification decision"
 }`
 
     const userPrompt = `Analyze this email:
@@ -219,8 +285,11 @@ From: ${emailData.from}
 Body:
 ${emailData.content}`
 
-    const completion = await this.openai.chat.completions.create({
-      model: process.env.LLM_MODEL || 'gpt-4o-mini',
+    console.log(`[IntakeAgent] Using model for extraction: ${extractionModel}`)
+    
+    // Handle different model requirements
+    const modelParams: any = {
+      model: extractionModel,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -228,7 +297,9 @@ ${emailData.content}`
       response_format: { type: 'json_object' },
       temperature: 0.1,
       max_tokens: 1500
-    })
+    }
+    
+    const completion = await this.openai.chat.completions.create(modelParams)
 
     const response = JSON.parse(completion.choices[0].message.content || '{}')
     console.log('LLM Extraction Response:', response)
@@ -250,6 +321,20 @@ ${emailData.content}`
       const destZip = extractedData.delivery_zip || 
                      this.extractZipCode(extractedData.delivery_location || '') || 
                      '00000'
+      
+      // Parse weight to integer
+      let weightLb = 0
+      if (extractedData.weight) {
+        if (typeof extractedData.weight === 'string') {
+          // Extract numeric value from string like "40000 lbs" or "40,000 lbs"
+          const weightMatch = extractedData.weight.match(/[\d,]+/)
+          if (weightMatch) {
+            weightLb = parseInt(weightMatch[0].replace(/,/g, ''))
+          }
+        } else if (typeof extractedData.weight === 'number') {
+          weightLb = extractedData.weight
+        }
+      }
       
       // Parse pickup date
       let pickupDate = new Date()
@@ -332,7 +417,7 @@ ${emailData.content}`
           shipperEmail: emailData.from,
           originZip: originZip,
           destZip: destZip,
-          weightLb: extractedData.weight || 0,
+          weightLb: weightLb || 0,
           commodity: extractedData.commodity || 'General Freight',
           pickupDt: pickupDate,
           status: 'NEW_RFQ',
@@ -347,6 +432,13 @@ ${emailData.content}`
       })
 
       console.log('Created enhanced load:', load.id)
+
+      // Trigger auto-pricing in the background
+      import('@/lib/services/load-processing/auto-pricing').then(({ AutoPricingService }) => {
+        AutoPricingService.processNewLoad(load.id).catch(error => {
+          console.error('[IntakeAgent] Error in auto-pricing:', error)
+        })
+      })
 
       // Create initial chat message with freight type context
       const freightDescription = FreightValidator.getFreightTypeDescription(freightType)

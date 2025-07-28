@@ -116,6 +116,28 @@ model Load {
   hazmat               Boolean   @default(false)
   totalMiles           Int?      @map("total_miles")
   ratePerMile          Decimal?  @map("rate_per_mile") @db.Decimal(10, 2)
+  
+  // New fields for IntakeAgentWithClarification
+  freightType          String?   @default("UNKNOWN") @map("freight_type") @db.VarChar(50)
+  pickupLocation       String?   @map("pickup_location")
+  deliveryLocation     String?   @map("delivery_location")
+  weight               Int?
+  pickupDate           DateTime? @map("pickup_date")
+  equipmentType        String?   @map("equipment_type") @db.VarChar(50)
+  temperature          Json?
+  dimensions           Json?
+  hazmatClass          String?   @map("hazmat_class") @db.VarChar(10)
+  unNumber             String?   @map("un_number") @db.VarChar(20)
+  properShippingName   String?   @map("proper_shipping_name") @db.VarChar(255)
+  packingGroup         String?   @map("packing_group") @db.VarChar(5)
+  emergencyContact     String?   @map("emergency_contact") @db.VarChar(255)
+  technicalName        String?   @map("technical_name") @db.VarChar(255)
+  specialRequirements  String?   @map("special_requirements")
+  freightClass         String?   @map("freight_class") @db.VarChar(10)
+  pieceCount           Int?      @map("piece_count")
+  threadId             String?   @map("thread_id") @db.VarChar(255)
+  originalEmailSubject String?   @map("original_email_subject")
+  originalEmailContent String?   @map("original_email_content")
 
   @@index([complexityFlags])
   @@index([assignedSpecialist], map: "idx_loads_assigned_specialist")
@@ -128,6 +150,8 @@ model Load {
   @@index([riskScore(sort: Desc), createdAt], map: "idx_loads_risk_score")
   @@index([sourceEmailAccountId], map: "idx_loads_source_email_account")
   @@index([status], map: "idx_loads_status")
+  @@index([freightType], map: "idx_loads_freight_type")
+  @@index([threadId], map: "idx_loads_thread_id")
   @@map("loads")
 }
 

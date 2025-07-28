@@ -1,8 +1,14 @@
 /**
- * Test script for the enhanced freight classification system
+ * Test freight type classification accuracy
  * 
  * Run with: npx tsx scripts/test-freight-classification.ts
  */
+
+import { config } from 'dotenv'
+import { resolve } from 'path'
+
+// Load environment variables from .env.local
+config({ path: resolve(process.cwd(), '.env.local') })
 
 import { IntakeAgentLLMEnhanced } from '../lib/agents/intake-llm-enhanced'
 import { FreightValidator } from '../lib/freight-types/freight-validator'

@@ -9,6 +9,22 @@ export class EmailOAuthProcessor {
   constructor() {
     // No initialization needed for Prisma
   }
+  
+  /**
+   * Check if an email address is likely from a carrier
+   * (Simple heuristic - can be improved with a carrier database)
+   */
+  private isLikelyCarrierEmail(email: string): boolean {
+    const carrierDomains = [
+      'trucking', 'transport', 'logistics', 'freight',
+      'carrier', 'express', 'delivery', 'lines'
+    ]
+    
+    const domain = email.toLowerCase().split('@')[1] || ''
+    
+    // Check if domain contains carrier-related keywords
+    return carrierDomains.some(keyword => domain.includes(keyword))
+  }
 
   async processGmailMessages(accessToken: string, brokerId: string, isInitialCheck: boolean = false) {
     console.log('[processGmailMessages] Starting Gmail processing for broker:', brokerId)
@@ -265,7 +281,46 @@ export class EmailOAuthProcessor {
       const inReplyTo = email.rawData?.inReplyTo || ''
       const references = email.rawData?.references || ''
       
-      // Call the intake processing API
+      // Check if this might be a carrier quote response
+      const isCarrierDomain = this.isLikelyCarrierEmail(email.fromAddress)
+      const isReply = !!(inReplyTo || references || email.subject?.toLowerCase().includes('re:'))
+      
+      if (isCarrierDomain && isReply) {
+        console.log('[processEmail] Detected potential carrier quote response')
+        
+        // Try to process as carrier quote first
+        try {
+          const { CarrierQuoteHandler } = await import('@/lib/agents/carrier-quote-handler')
+          const handler = new CarrierQuoteHandler()
+          
+          const result = await handler.processCarrierEmail({
+            from: email.fromAddress,
+            to: email.toAddress,
+            subject: email.subject,
+            content: email.content,
+            brokerId: brokerId,
+            inReplyTo: inReplyTo,
+            references: references,
+            messageId: email.messageId
+          })
+          
+          if (result.isQuoteResponse) {
+            console.log('[processEmail] Successfully processed as carrier quote')
+            await prisma.email.update({
+              where: { id: email.id },
+              data: { 
+                status: 'processed',
+                processedAt: new Date()
+              }
+            })
+            return
+          }
+        } catch (error) {
+          console.error('[processEmail] Error processing as carrier quote:', error)
+        }
+      }
+      
+      // If not a carrier quote, process as potential load request
       const response = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/intake/process`, {
         method: 'POST',
         headers: {
